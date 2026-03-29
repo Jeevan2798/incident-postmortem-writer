@@ -45,6 +45,22 @@ These design choices simulate real-world incident response, where incomplete inf
 
 ---
 
+## Why This Is Challenging for Agents
+
+This environment is difficult for AI agents because:
+
+**Hidden evidence** — critical logs are not visible upfront and must be discovered through precise `QUERY_LOGS` calls targeting the right service and time window.
+
+**Conflicting information** — Slack threads contain confident but incorrect hypotheses from senior engineers, forcing the agent to trust data over authority.
+
+**Limited exploration budget** — queries are constrained (max 8) with escalating penalties, preventing brute-force search strategies.
+
+**Structured output requirement** — the agent must not only reason correctly but also produce a coherent, validated 5-section document with specific content requirements per section.
+
+These constraints test true agentic reasoning — not just text generation.
+
+---
+
 ## Environment Description
 
 The agent receives a realistic incident bundle: timestamped alert logs, a Slack thread from the on-call team, and a service dependency graph. It must investigate the incident and produce a complete 5-section post-mortem document.
@@ -152,7 +168,7 @@ hard  : 0.880  █████████████████
 avg   : 0.955
 ```
 
-The hard task correctly scores lower because the baseline agent queries CDN (the false root cause) instead of data-pipeline, triggering a penalty and writing a partially incorrect post-mortem. The baseline intentionally does not achieve perfect scores on medium and hard tasks, demonstrating that the environment is challenging yet solvable.
+The hard task correctly scores lower because the baseline agent queries CDN (the false root cause) instead of data-pipeline, triggering a penalty and writing a partially incorrect post-mortem. The baseline intentionally does not achieve perfect scores on medium and hard tasks, demonstrating that the environment is challenging yet solvable. Scores are consistent across runs and deterministic given the same action sequence.
 
 ---
 
