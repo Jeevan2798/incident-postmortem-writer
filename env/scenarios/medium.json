@@ -1,0 +1,146 @@
+{
+  "scenario_id": "medium_001",
+  "difficulty": "medium",
+  "incident_id": "INC-2024-042",
+  "incident_title": "Cascading Checkout Failure — Auth Service Timeout Triggering Downstream Collapse",
+  "goal": "Write a complete incident post-mortem for a cascading failure across 3 services. Identify which service was the ROOT cause (not just the first to show symptoms). Use QUERY_LOGS carefully — the key evidence is in a non-obvious window. Assign action items to the correct teams.",
+
+  "initial_alerts": [
+    {"timestamp": "14:02:10", "service": "checkout",    "severity": "WARN",     "message": "checkout p99 latency exceeded 2s threshold"},
+    {"timestamp": "14:03:45", "service": "checkout",    "severity": "ERROR",    "message": "checkout error rate at 12% — threshold is 5%"},
+    {"timestamp": "14:04:00", "service": "auth",        "severity": "WARN",     "message": "auth token validation p99 at 4.8s — timeout threshold 5s"},
+    {"timestamp": "14:04:30", "service": "checkout",    "severity": "CRITICAL", "message": "checkout health check FAILED"},
+    {"timestamp": "14:04:50", "service": "order-service","severity": "ERROR",   "message": "order-service failing to validate sessions — auth returning 504"},
+    {"timestamp": "14:05:10", "service": "auth",        "severity": "CRITICAL", "message": "auth service health check FAILED"},
+    {"timestamp": "14:05:30", "service": "api-gateway", "severity": "CRITICAL", "message": "Multiple upstream services DOWN: checkout, auth"},
+    {"timestamp": "14:05:45", "service": "monitoring",  "severity": "CRITICAL", "message": "PagerDuty: SEV-1 fired — multiple services down"},
+    {"timestamp": "14:18:00", "service": "auth",        "severity": "INFO",     "message": "Auth DB read replica promoted to primary"},
+    {"timestamp": "14:21:30", "service": "auth",        "severity": "INFO",     "message": "auth health check PASSED"},
+    {"timestamp": "14:23:00", "service": "checkout",    "severity": "INFO",     "message": "checkout health check PASSED — cascading recovery complete"},
+    {"timestamp": "14:23:15", "service": "order-service","severity": "INFO",    "message": "order-service session validation restored"}
+  ],
+
+  "slack_thread": [
+    {"timestamp": "14:05", "author": "pagerduty-bot", "text": "🚨 SEV-1: checkout AND auth are DOWN. On-call: @priya @tom"},
+    {"timestamp": "14:06", "author": "priya",         "text": "checkout is erroring on every request. Looking at it now."},
+    {"timestamp": "14:06", "author": "tom",           "text": "auth is also down, investigating."},
+    {"timestamp": "14:07", "author": "priya",         "text": "checkout logs show auth is timing out on every token validation call. Checkout itself seems fine — it's blocked on auth."},
+    {"timestamp": "14:08", "author": "alex",          "text": "Heads up — we deployed a new Redis caching layer for auth at 13:55. Could be related."},
+    {"timestamp": "14:09", "author": "tom",           "text": "Checking auth. Redis cache looks healthy. Memory usage normal."},
+    {"timestamp": "14:10", "author": "tom",           "text": "Wait — auth is hammering its DB. Read replica is lagging 45 seconds behind primary. That's the bottleneck."},
+    {"timestamp": "14:11", "author": "priya",         "text": "So auth DB replica is the root cause? Not Redis?"},
+    {"timestamp": "14:12", "author": "tom",           "text": "Correct. Redis was a red herring — it's healthy. Auth's DB read replica is overwhelmed. Promoting replica to primary now."},
+    {"timestamp": "14:14", "author": "alex",          "text": "Could the Redis deployment have caused extra load on the auth DB? If Redis cache misses are high, auth would fall back to DB reads."},
+    {"timestamp": "14:15", "author": "tom",           "text": "Good catch Alex. Checking cache hit rate... yes. Cache hit rate dropped to 8% after the Redis deploy. Auth is doing 10x normal DB reads."},
+    {"timestamp": "14:16", "author": "tom",           "text": "Root cause confirmed: Redis deployment misconfigured TTL (set to 1s instead of 300s). Causes cache misses → auth DB overwhelmed → auth timeouts → checkout blocked."},
+    {"timestamp": "14:18", "author": "tom",           "text": "Promoting auth DB read replica to primary as interim fix. Will fix Redis TTL config properly."},
+    {"timestamp": "14:23", "author": "priya",         "text": "All services recovering. Checkout green, order-service green."},
+    {"timestamp": "14:24", "author": "tom",           "text": "Post-mortem needed. Real root cause: Redis TTL misconfiguration in the 13:55 deploy."}
+  ],
+
+  "service_graph": [
+    {"service": "api-gateway",   "depends_on": ["checkout", "auth", "order-service"]},
+    {"service": "checkout",      "depends_on": ["auth", "inventory", "payments"]},
+    {"service": "order-service", "depends_on": ["auth", "payments"]},
+    {"service": "auth",          "depends_on": ["redis-auth", "postgres-auth"]},
+    {"service": "redis-auth",    "depends_on": []},
+    {"service": "postgres-auth", "depends_on": ["postgres-auth-replica"]},
+    {"service": "inventory",     "depends_on": ["postgres-inventory"]},
+    {"service": "payments",      "depends_on": ["postgres-payments"]}
+  ],
+
+  "relevant_services": ["auth", "redis-auth", "postgres-auth"],
+
+  "evidence_windows": [
+    {
+      "window_id": "redis_deploy_evidence",
+      "service": "redis-auth",
+      "from_time": "13:53",
+      "to_time": "13:58",
+      "overlap_required_minutes": 2,
+      "logs": [
+        {"timestamp": "13:55:01", "service": "redis-auth", "severity": "INFO",  "message": "Redis cache deployment started — new config applied"},
+        {"timestamp": "13:55:18", "service": "redis-auth", "severity": "INFO",  "message": "TTL configuration set: default_ttl=1 (was 300)"},
+        {"timestamp": "13:55:20", "service": "redis-auth", "severity": "INFO",  "message": "Redis deployment complete"},
+        {"timestamp": "13:56:00", "service": "auth",       "severity": "DEBUG", "message": "Cache miss — fetching token from postgres-auth [cache_hit_rate: 91%]"},
+        {"timestamp": "13:57:30", "service": "auth",       "severity": "DEBUG", "message": "Cache miss — fetching token from postgres-auth [cache_hit_rate: 54%]"},
+        {"timestamp": "13:59:00", "service": "auth",       "severity": "WARN",  "message": "Cache miss — fetching token from postgres-auth [cache_hit_rate: 8%]"}
+      ],
+      "key_evidence_strings": [
+        "default_ttl=1",
+        "TTL configuration",
+        "cache_hit_rate: 8%",
+        "cache miss"
+      ]
+    },
+    {
+      "window_id": "db_overload_evidence",
+      "service": "postgres-auth",
+      "from_time": "14:00",
+      "to_time": "14:06",
+      "overlap_required_minutes": 2,
+      "logs": [
+        {"timestamp": "14:00:10", "service": "postgres-auth",         "severity": "WARN",     "message": "Read replica lag: 8s"},
+        {"timestamp": "14:01:30", "service": "postgres-auth",         "severity": "WARN",     "message": "Read replica lag: 22s"},
+        {"timestamp": "14:02:45", "service": "postgres-auth",         "severity": "ERROR",    "message": "Read replica lag: 45s — queries being rerouted to primary"},
+        {"timestamp": "14:03:10", "service": "postgres-auth",         "severity": "ERROR",    "message": "Primary DB connections at 95% capacity"},
+        {"timestamp": "14:04:00", "service": "postgres-auth-replica", "severity": "CRITICAL", "message": "Replica health check FAILED — too far behind primary"}
+      ],
+      "key_evidence_strings": [
+        "replica lag",
+        "rerouted to primary",
+        "connections at 95%"
+      ]
+    }
+  ],
+
+  "gold_standard": {
+    "root_cause": {
+      "service": "redis-auth",
+      "category": "config_error",
+      "keywords": ["TTL", "cache", "misconfigur", "1s", "miss", "redis"],
+      "valid_phrasings": [
+        "Redis TTL misconfigured to 1s instead of 300s",
+        "Redis cache TTL set incorrectly causing cache misses",
+        "Redis deployment set TTL to 1 second causing auth DB overload",
+        "Cache misconfiguration in redis-auth leading to DB saturation"
+      ]
+    },
+    "timeline_events": [
+      {"time": "13:55", "event": "deployment",   "service": "redis-auth",     "label": "Redis deployed with wrong TTL"},
+      {"time": "14:00", "event": "degradation",  "service": "postgres-auth",  "label": "Auth DB replica lag begins"},
+      {"time": "14:02", "event": "first_alert",  "service": "checkout",       "label": "Checkout latency alert"},
+      {"time": "14:05", "event": "service_down", "service": "auth",           "label": "Auth health check failed"},
+      {"time": "14:18", "event": "remediation",  "service": "postgres-auth",  "label": "DB replica promoted"},
+      {"time": "14:23", "event": "recovery",     "service": "checkout",       "label": "Full recovery confirmed"}
+    ],
+    "timeline_tolerance_minutes": 3,
+    "required_action_item_themes": ["fix redis TTL", "add cache hit rate monitoring", "improve deployment validation", "replica lag alerting"],
+    "known_teams": ["auth-team", "platform", "sre", "priya", "tom", "alex"],
+    "valid_due_date_patterns": ["\\d{4}-\\d{2}-\\d{2}", "\\d{1,2}/\\d{1,2}", "in \\d+ days?", "next sprint", "this week"]
+  },
+
+  "red_herrings": [
+    "Redis cache memory usage was normal — memory is not the issue",
+    "Checkout service code was not changed — it is a victim, not a cause",
+    "The Redis deployment mention comes BEFORE checkout starts failing — timeline matters"
+  ],
+
+  "query_limits": {
+    "max_queries": 8,
+    "penalty_schedule": [0.05, 0.08, 0.12, 0.18, 0.18, 0.18, 0.18, 0.18]
+  },
+
+  "noise_logs": [
+    {"timestamp": "13:50:00", "service": "inventory",  "severity": "INFO",  "message": "Inventory sync job completed — 0 errors"},
+    {"timestamp": "14:00:00", "service": "payments",   "severity": "INFO",  "message": "Payment processor heartbeat OK"},
+    {"timestamp": "14:03:00", "service": "catalog",    "severity": "INFO",  "message": "Search index rebuild completed"}
+  ],
+
+  "metadata": {
+    "incident_duration_minutes": 21,
+    "affected_users": 8400,
+    "revenue_impact_usd": 126000,
+    "severity": "SEV-1"
+  }
+}

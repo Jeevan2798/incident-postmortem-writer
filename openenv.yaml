@@ -1,0 +1,122 @@
+name: incident-postmortem-writer
+version: "1.0.0"
+description: >
+  An OpenEnv environment where an AI agent learns to write structured
+  incident post-mortems from raw alert logs, Slack threads, and service
+  dependency graphs. Covers 3 difficulty levels: easy, medium, and hard.
+
+author: postmortem-env
+license: MIT
+
+tags:
+  - openenv
+  - real-world
+  - nlp
+  - sre
+  - incident-management
+  - postmortem
+  - productivity
+
+environment:
+  type: text
+  multi_task: true
+  tasks:
+    - id: easy
+      name: "Single-Service Database Outage"
+      difficulty: easy
+      description: >
+        A payments service goes down due to a DB connection leak in a new
+        deployment. Clear root cause, clean Slack thread, 8 alerts.
+      max_steps: 25
+      max_queries: 8
+
+    - id: medium
+      name: "Cascading Microservices Failure"
+      difficulty: medium
+      description: >
+        Redis TTL misconfiguration causes auth DB overload, cascading to
+        checkout and order-service. Multiple red herrings in Slack thread.
+      max_steps: 25
+      max_queries: 8
+
+    - id: hard
+      name: "Multi-Service Degradation with False Root Causes"
+      difficulty: hard
+      description: >
+        Three simultaneous failures, two false root causes planted in Slack,
+        a senior engineer confidently wrong. Real evidence only accessible
+        via a precise QUERY_LOGS call in a non-obvious time window.
+      max_steps: 25
+      max_queries: 8
+
+action_space:
+  type: structured
+  actions:
+    - name: QUERY_LOGS
+      description: Query log evidence for a specific service and time window
+      fields:
+        - query_service: string
+        - query_from: string (HH:MM)
+        - query_to: string (HH:MM)
+
+    - name: WRITE_SECTION
+      description: Write or update one section of the post-mortem document
+      fields:
+        - section_name: "summary | timeline | root_cause | impact | action_items"
+        - section_content: string
+
+    - name: ASSIGN_ACTION_ITEM
+      description: Assign a structured action item with owner and due date
+      fields:
+        - action_item_description: string
+        - action_item_owner: string
+        - action_item_due_date: string
+
+    - name: SUBMIT
+      description: Finalize and submit the post-mortem for grading
+
+observation_space:
+  type: structured
+  fields:
+    - goal: string
+    - incident_id: string
+    - incident_title: string
+    - alerts: list of alert logs with timestamp, service, severity, message
+    - slack_thread: list of messages with timestamp, author, text
+    - service_graph: dependency graph of services
+    - step: integer
+    - max_steps: integer
+    - queries_used: integer
+    - max_queries: integer
+    - sections: list of section states (unwritten/written_invalid/written_valid)
+    - last_action_result: string
+    - retrieved_logs: list of log lines from QUERY_LOGS (if any)
+
+reward:
+  type: shaped
+  range: [-1.0, 1.0]
+  signals:
+    - "+0.06 correct QUERY_LOGS call revealing key evidence"
+    - "+0.03 per section written and validated (max 5)"
+    - "+0.08 structured action item with valid owner and due date"
+    - "-0.02 overwriting an already-valid section"
+    - "-0.05 to -0.18 wrong QUERY_LOGS (escalating penalty)"
+    - "-0.10 per missing section at SUBMIT"
+    - "-0.10 no SUBMIT before max steps"
+    - "0.0-1.0 final grade score added at SUBMIT"
+
+server:
+  port: 7860
+  host: 0.0.0.0
+  endpoints:
+    - GET  /health
+    - POST /reset
+    - POST /step
+    - GET  /state
+    - GET  /tasks
+    - GET  /docs
+
+space:
+  sdk: docker
+  hardware: cpu-basic
+  python_version: "3.11"
