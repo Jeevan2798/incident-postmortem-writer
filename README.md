@@ -29,6 +29,22 @@ This environment trains and evaluates agents on exactly this workflow — one of
 
 ---
 
+## Key Innovations
+
+This environment goes beyond standard task simulation by introducing:
+
+**Evidence gating via QUERY_LOGS** — critical root cause evidence is hidden behind precise service + time window queries. Incorrect queries return realistic noise logs, forcing intentional investigation rather than guessing.
+
+**Adversarial Slack signals** — threads include senior engineers confidently blaming the wrong service, misleading correlations between symptoms and causes, and red herrings designed to trap pattern-matching agents.
+
+**Delayed and partial observability** — the agent never sees full logs upfront. It must actively explore under a hard query budget (max 8 queries with escalating penalties), simulating real incident response under time pressure.
+
+**Multi-layer deterministic grading** — root cause is evaluated across service identification, cause category classification, and semantic keyword validation. Not string matching. A correct answer written in different words still scores correctly.
+
+These design choices simulate real-world incident response, where incomplete information, misleading signals, and time pressure are the norm — and where the difference between a good engineer and a great one is knowing where to look.
+
+---
+
 ## Environment Description
 
 The agent receives a realistic incident bundle: timestamped alert logs, a Slack thread from the on-call team, and a service dependency graph. It must investigate the incident and produce a complete 5-section post-mortem document.
@@ -116,6 +132,8 @@ Each task is scored by a deterministic grader (0.0–1.0):
 | Impact | 15% | Word count + service mention + duration + scale |
 | Completeness | 10% | All 5 sections present and validated |
 
+The environment is fully deterministic — scenarios are static JSON, grading is a pure function, and identical action sequences always produce identical scores.
+
 **Root cause special rules:**
 - If L1 (service identification) = 0, score capped at 0.65
 - If false root cause service mentioned before real service, L1 reduced to 0.15
@@ -134,7 +152,7 @@ hard  : 0.880  █████████████████
 avg   : 0.955
 ```
 
-The hard task correctly scores lower because the baseline agent queries CDN (the false root cause) instead of data-pipeline, triggering a penalty and writing a partially incorrect post-mortem.
+The hard task correctly scores lower because the baseline agent queries CDN (the false root cause) instead of data-pipeline, triggering a penalty and writing a partially incorrect post-mortem. The baseline intentionally does not achieve perfect scores on medium and hard tasks, demonstrating that the environment is challenging yet solvable.
 
 ---
 
