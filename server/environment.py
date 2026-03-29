@@ -123,8 +123,14 @@ def _validate_section(
         return _count_timestamps(content) >= 3
 
     elif section_name == SectionName.IMPACT:
-        # Must be at least 20 words
-        return len(content.split()) >= 20
+        # Must be at least 25 words AND mention a service or duration
+        has_words = len(content.split()) >= 25
+        has_service = _any_service(content, scenario.get("service_graph_names", []))
+        has_time = bool(re.search(
+            r'\b(\d+\s*(minute|hour|min|hr|second)s?|downtime|outage|unavailable|degraded|\d+)\b',
+            content, re.IGNORECASE
+        ))
+        return has_words and (has_service or has_time)
 
     elif section_name == SectionName.ACTION_ITEMS:
         # Must mention an owner AND a due date pattern
@@ -153,6 +159,12 @@ def _evaluate_query(
     relevant = scenario["relevant_services"]
     service_match = service.lower() in [s.lower() for s in relevant]
 
+    # Gate: service must be in relevant_services to ever return correct
+    # This ensures decoy evidence windows (like cdn) never grant +reward
+    if not service_match:
+        noise = [AlertLog(**l) for l in scenario.get("noise_logs", [])]
+        return False, noise[:3]
+
     for window in scenario["evidence_windows"]:
         if window["service"].lower() != service.lower():
             continue
@@ -166,9 +178,9 @@ def _evaluate_query(
             logs = [AlertLog(**l) for l in window["logs"]]
             return True, logs
 
-    # Wrong window or wrong service — return noise logs
+    # Correct service but wrong time window — return noise logs
     noise = [AlertLog(**l) for l in scenario.get("noise_logs", [])]
-    return False, noise[:3]  # Return at most 3 noise lines
+    return False, noise[:3]
 
 
 # ---------------------------------------------------------------------------
@@ -196,19 +208,24 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
     timeline_text = sections.get("timeline", "")
     gold_events = gs["timeline_events"]
     tolerance = gs.get("timeline_tolerance_minutes", 3)
+    hidden_events = gs.get("hidden_timeline_events", [])
+    correct_queries = scenario.get("_correct_queries_made", 0)
     matched = 0
     for event in gold_events:
+        # Skip hidden events if no correct query was made
+        if event["time"] in hidden_events and correct_queries == 0:
+            continue
         gold_min = _parse_time(event["time"])
-        # Check if any timestamp in the text is within tolerance
         found_times = re.findall(r'(\d{1,2}):(\d{2})', timeline_text)
         for h, m in found_times:
             candidate = int(h) * 60 + int(m)
             if abs(candidate - gold_min) <= tolerance:
-                # Also check event label keyword is nearby
                 if _any_keyword(timeline_text, [event["service"], event["label"].split()[0]]):
                     matched += 1
                     break
-    timeline_score = min(matched / max(len(gold_events), 1), 1.0)
+    # Score against scoreable events only
+    scoreable = len([e for e in gold_events if e["time"] not in hidden_events or correct_queries > 0])
+    timeline_score = min(matched / max(scoreable, 1), 1.0)
 
     # ------------------------------------------------------------------
     # 3. Root cause score (30%) — 3-layer
@@ -219,7 +236,30 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
     rc_gold = gs["root_cause"]
 
     # Layer 1: correct service (0.40)
-    layer1 = 0.40 if _any_service(rc_text, [rc_gold["service"]]) else 0.0
+    # Match full name (redis-auth) OR first component (redis) OR last component (auth if unique)
+    gold_service = rc_gold["service"]
+    service_variants = [gold_service]
+    if "-" in gold_service:
+        parts = gold_service.split("-")
+        service_variants.append(parts[0])  # e.g. "redis" from "redis-auth"
+        # Only add last part if it uniquely identifies service (not generic like "auth")
+        if parts[-1] not in ["auth", "db", "service", "api", "cache"]:
+            service_variants.append(parts[-1])
+    layer1 = 0.40 if _any_service(rc_text, service_variants) else 0.0
+
+    # But penalize if a false root cause service is ALSO mentioned prominently
+    # and the real service is only mentioned as secondary
+    false_causes = gs.get("false_root_causes", [])
+    if layer1 > 0 and false_causes:
+        for fc in false_causes:
+            fc_svc = fc["service"]
+            rc_lower = rc_text.lower()
+            # If false cause appears before real cause in text, reduce L1
+            real_pos = rc_lower.find(gold_service.split("-")[0].lower())
+            false_pos = rc_lower.find(fc_svc.lower())
+            if false_pos != -1 and real_pos != -1 and false_pos < real_pos:
+                # False cause mentioned first — likely primary blame
+                layer1 = 0.15  # Partial credit only
 
     # Layer 2: cause category (0.35)
     category_keywords = {
@@ -247,25 +287,51 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
         raw_rc_score = min(raw_rc_score, 0.6)
         timeline_cap_applied = True
 
-    # Penalty if agent blamed a false root cause (hard scenario)
+    # L1 cap: if correct service not identified, cap root cause at 0.65
+    if layer1 == 0.0:
+        raw_rc_score = min(raw_rc_score, 0.65)
+
+    # Track correct queries for timeline hidden events
+    correct_queries = scenario.get("_correct_queries_made", 0)
+
+    # Additional penalty: if ONLY false cause mentioned (no real service at all)
     false_causes = gs.get("false_root_causes", [])
     for fc in false_causes:
         if _any_service(rc_text, [fc["service"]]):
-            # Only penalize if they DIDN'T also mention the real service
-            if not _any_service(rc_text, [rc_gold["service"]]):
-                raw_rc_score *= 0.4  # Heavy penalty for blaming wrong service
+            if not _any_service(rc_text, service_variants):
+                raw_rc_score *= 0.35
 
     # ------------------------------------------------------------------
     # 4. Impact score (15%)
     # ------------------------------------------------------------------
     impact_text = sections.get("impact", "")
     impact_score = 0.0
-    if len(impact_text.split()) >= 20:
-        impact_score += 0.5
-    if _any_keyword(impact_text, ["user", "customer", "revenue", "service", "downtime"]):
-        impact_score += 0.3
-    if re.search(r'\d+', impact_text):  # mentions a number
-        impact_score += 0.2
+
+    # Layer 1 (0.25): minimum word count — real impact statements are substantive
+    if len(impact_text.split()) >= 25:
+        impact_score += 0.25
+
+    # Layer 2 (0.25): must mention affected service by name
+    impact_services = scenario.get("relevant_services", []) + scenario.get("service_graph_names", [])
+    if _any_service(impact_text, impact_services):
+        impact_score += 0.25
+
+    # Layer 3 (0.25): must mention duration or time (minutes, hours, downtime, outage)
+    has_duration = bool(re.search(
+        r'\b(\d+\s*(minute|hour|min|hr|second)s?|downtime|outage|unavailable|degraded)\b',
+        impact_text, re.IGNORECASE
+    ))
+    if has_duration:
+        impact_score += 0.25
+
+    # Layer 4 (0.25): must mention scale — users, customers, revenue, requests, or a number + unit
+    has_scale = bool(re.search(
+        r'\b(user|customer|request|revenue|transaction|\$|dollar|affected|impact)\b',
+        impact_text, re.IGNORECASE
+    )) and bool(re.search(r'\d+', impact_text))
+    if has_scale:
+        impact_score += 0.25
+
     impact_score = min(impact_score, 1.0)
 
     # ------------------------------------------------------------------
@@ -651,7 +717,10 @@ class PostMortemEnvironment(Environment):
 
     def _apply_submit_grading(self, breakdown: RewardBreakdown) -> None:
         """Run the grader and set done=True."""
-        self._grade_result = _grade_submission(self._written_sections, self._scenario)
+        # Pass query tracking into grader
+        grading_scenario = dict(self._scenario)
+        grading_scenario["_correct_queries_made"] = self._correct_queries_made
+        self._grade_result = _grade_submission(self._written_sections, grading_scenario)
         # Add grader score to cumulative (it's the bulk of the final score)
         self._cumulative_reward = round(
             self._cumulative_reward + self._grade_result.total_score, 4

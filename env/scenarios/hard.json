@@ -2,64 +2,262 @@
   "scenario_id": "hard_001",
   "difficulty": "hard",
   "incident_id": "INC-2024-099",
-  "incident_title": "Multi-Service Degradation — Intermittent Failures Across Checkout, Recommendations, and Data Pipeline",
-  "goal": "Write a complete incident post-mortem for a complex multi-service incident. WARNING: Two false root causes are deliberately planted in the Slack thread and alert logs. The real root cause requires querying a specific non-obvious log window. A senior engineer's Slack hypothesis is INCORRECT — you must trust log evidence over authority. Assign action items with correct owners.",
-
+  "incident_title": "Multi-Service Degradation \u2014 Intermittent Failures Across Checkout, Recommendations, and Data Pipeline",
+  "goal": "Write a complete incident post-mortem for a complex multi-service incident. WARNING: Two false root causes are deliberately planted in the Slack thread and alert logs. The real root cause requires querying a specific non-obvious log window. A senior engineer's Slack hypothesis is INCORRECT \u2014 you must trust log evidence over authority. Assign action items with correct owners.",
   "initial_alerts": [
-    {"timestamp": "09:12:05", "service": "recommendations", "severity": "WARN",     "message": "recommendations p99 latency: 3.2s (threshold: 2s)"},
-    {"timestamp": "09:13:20", "service": "cdn",             "severity": "WARN",     "message": "CDN cache hit rate dropped to 61% (normal: 94%)"},
-    {"timestamp": "09:14:00", "service": "checkout",        "severity": "WARN",     "message": "checkout error rate: 3.1% — approaching 5% threshold"},
-    {"timestamp": "09:15:30", "service": "cdn",             "severity": "ERROR",    "message": "CDN cache hit rate: 41% — significant drop"},
-    {"timestamp": "09:16:00", "service": "recommendations", "severity": "CRITICAL", "message": "recommendations health check FAILED"},
-    {"timestamp": "09:16:20", "service": "checkout",        "severity": "ERROR",    "message": "checkout error rate: 8.4% — threshold exceeded"},
-    {"timestamp": "09:17:00", "service": "data-pipeline",   "severity": "ERROR",    "message": "Recommendation model feature store sync FAILED — stale features"},
-    {"timestamp": "09:17:30", "service": "monitoring",      "severity": "CRITICAL", "message": "PagerDuty SEV-1 fired: recommendations DOWN, checkout degraded"},
-    {"timestamp": "09:18:00", "service": "cdn",             "severity": "CRITICAL", "message": "CDN cache hit rate: 18% — CDN effectively bypassed"},
-    {"timestamp": "09:19:00", "service": "auth",            "severity": "WARN",     "message": "auth p99 latency elevated: 1.8s (normal: 0.3s)"},
-    {"timestamp": "09:19:30", "service": "checkout",        "severity": "ERROR",    "message": "checkout — 23% of requests failing at auth token validation step"},
-    {"timestamp": "09:20:00", "service": "auth",            "severity": "ERROR",    "message": "auth DB connections: 88% capacity"},
-    {"timestamp": "09:38:00", "service": "data-pipeline",   "severity": "INFO",     "message": "Feature store sync resumed — ML model hot-reloading"},
-    {"timestamp": "09:41:00", "service": "recommendations", "severity": "INFO",     "message": "recommendations health check PASSED"},
-    {"timestamp": "09:44:00", "service": "cdn",             "severity": "INFO",     "message": "CDN cache hit rate recovering: 78%"},
-    {"timestamp": "09:47:00", "service": "checkout",        "severity": "INFO",     "message": "checkout error rate back to 0.4% — recovery complete"}
+    {
+      "timestamp": "09:12:05",
+      "service": "recommendations",
+      "severity": "WARN",
+      "message": "recommendations p99 latency: 3.2s (threshold: 2s)"
+    },
+    {
+      "timestamp": "09:13:20",
+      "service": "cdn",
+      "severity": "WARN",
+      "message": "CDN cache hit rate dropped to 61% (normal: 94%)"
+    },
+    {
+      "timestamp": "09:14:00",
+      "service": "checkout",
+      "severity": "WARN",
+      "message": "checkout error rate: 3.1% \u2014 approaching 5% threshold"
+    },
+    {
+      "timestamp": "09:15:30",
+      "service": "cdn",
+      "severity": "ERROR",
+      "message": "CDN cache hit rate: 41% \u2014 significant drop"
+    },
+    {
+      "timestamp": "09:16:00",
+      "service": "recommendations",
+      "severity": "CRITICAL",
+      "message": "recommendations health check FAILED"
+    },
+    {
+      "timestamp": "09:16:20",
+      "service": "checkout",
+      "severity": "ERROR",
+      "message": "checkout error rate: 8.4% \u2014 threshold exceeded"
+    },
+    {
+      "timestamp": "09:17:00",
+      "service": "data-pipeline",
+      "severity": "ERROR",
+      "message": "Recommendation model feature store sync FAILED \u2014 stale features"
+    },
+    {
+      "timestamp": "09:17:30",
+      "service": "monitoring",
+      "severity": "CRITICAL",
+      "message": "PagerDuty SEV-1 fired: recommendations DOWN, checkout degraded"
+    },
+    {
+      "timestamp": "09:18:00",
+      "service": "cdn",
+      "severity": "CRITICAL",
+      "message": "CDN cache hit rate: 18% \u2014 CDN effectively bypassed"
+    },
+    {
+      "timestamp": "09:19:00",
+      "service": "auth",
+      "severity": "WARN",
+      "message": "auth p99 latency elevated: 1.8s (normal: 0.3s)"
+    },
+    {
+      "timestamp": "09:19:30",
+      "service": "checkout",
+      "severity": "ERROR",
+      "message": "checkout \u2014 23% of requests failing at auth token validation step"
+    },
+    {
+      "timestamp": "09:20:00",
+      "service": "auth",
+      "severity": "ERROR",
+      "message": "auth DB connections: 88% capacity"
+    },
+    {
+      "timestamp": "09:38:00",
+      "service": "data-pipeline",
+      "severity": "INFO",
+      "message": "Feature store sync resumed \u2014 ML model hot-reloading"
+    },
+    {
+      "timestamp": "09:41:00",
+      "service": "recommendations",
+      "severity": "INFO",
+      "message": "recommendations health check PASSED"
+    },
+    {
+      "timestamp": "09:44:00",
+      "service": "cdn",
+      "severity": "INFO",
+      "message": "CDN cache hit rate recovering: 78%"
+    },
+    {
+      "timestamp": "09:47:00",
+      "service": "checkout",
+      "severity": "INFO",
+      "message": "checkout error rate back to 0.4% \u2014 recovery complete"
+    }
   ],
-
   "slack_thread": [
-    {"timestamp": "09:17", "author": "pagerduty-bot", "text": "🚨 SEV-1: recommendations DOWN, checkout degraded. On-call: @mei @david @chen"},
-    {"timestamp": "09:18", "author": "mei",           "text": "On it. Recommendations is down and checkout is erroring. Looking."},
-    {"timestamp": "09:19", "author": "david",         "text": "CDN cache hit rate has cratered. I think the CDN is the problem — it's causing everything to hit origin servers and overwhelm them."},
-    {"timestamp": "09:20", "author": "chen",          "text": "Agreed with David. CDN cache hit rate going from 94% to 18% would cause massive origin overload. CDN is the culprit."},
-    {"timestamp": "09:21", "author": "mei",           "text": "Checking CDN config... no config changes in last 24h. CDN vendor status page shows all green."},
-    {"timestamp": "09:22", "author": "david",         "text": "Maybe CDN is having a silent issue. I'm going to escalate to CDN vendor support."},
-    {"timestamp": "09:23", "author": "priya_sre",     "text": "Hold on. I've been in this company 8 years. When CDN drops like this it's ALWAYS a bad cache-control header from a deploy. Check what deployed in the last hour."},
-    {"timestamp": "09:24", "author": "mei",           "text": "No deploys in last 2 hours. Deploy log is clean."},
-    {"timestamp": "09:24", "author": "priya_sre",     "text": "Then it must be the CDN vendor. I've seen this before. David is right."},
-    {"timestamp": "09:25", "author": "chen",          "text": "Auth is also elevated — could auth be the real problem? If auth is slow, checkout fails, which causes retries, which hammers everything."},
-    {"timestamp": "09:26", "author": "david",         "text": "Auth elevated latency could be a symptom of the CDN overload though. I still think CDN first."},
-    {"timestamp": "09:27", "author": "mei",           "text": "I'm querying data-pipeline logs. Recommendations went down right when feature store sync failed. That's suspicious."},
-    {"timestamp": "09:30", "author": "mei",           "text": "Found it. The data-pipeline ML feature store had a schema migration at 09:10. It changed the feature vector format. Recommendations model can't parse the new format — crashes on inference. THIS caused recommendations to go down."},
-    {"timestamp": "09:31", "author": "mei",           "text": "And recommendations going down explains the CDN drop — recommendations drives 70% of our homepage content. Homepage is now mostly cache misses because dynamic content can't be served."},
-    {"timestamp": "09:32", "author": "mei",           "text": "Auth elevation is ALSO a symptom — users are rage-refreshing because recommendations is broken, causing 3x normal auth load."},
-    {"timestamp": "09:33", "author": "david",         "text": "Oh. So CDN drop was a SYMPTOM of recommendations being down. Not the root cause."},
-    {"timestamp": "09:34", "author": "priya_sre",     "text": "Mei is right. I was wrong. Root cause is the data-pipeline schema migration breaking the ML model. Apologies for the misdirection."},
-    {"timestamp": "09:38", "author": "mei",           "text": "Rolled back feature store schema. Data pipeline resuming sync. ML model hot-reloading."},
-    {"timestamp": "09:47", "author": "mei",           "text": "Full recovery. Post-mortem needed. Real root cause: data-pipeline feature store schema migration at 09:10 broke recommendations ML model."}
+    {
+      "timestamp": "09:17",
+      "author": "pagerduty-bot",
+      "text": "\ud83d\udea8 SEV-1: recommendations DOWN, checkout degraded. On-call: @mei @david @chen"
+    },
+    {
+      "timestamp": "09:18",
+      "author": "mei",
+      "text": "On it. Recommendations is completely down and checkout error rate is climbing fast. Pulling what I can."
+    },
+    {
+      "timestamp": "09:19",
+      "author": "david",
+      "text": "CDN cache hit rate has cratered from 94% to 41% in the last 7 minutes. I think the CDN is the problem \u2014 it's causing everything to hit origin servers and overwhelm them."
+    },
+    {
+      "timestamp": "09:20",
+      "author": "chen",
+      "text": "Agreed with David. CDN cache hit rate going from 94% to 18% would cause massive origin overload. CDN is the culprit here."
+    },
+    {
+      "timestamp": "09:21",
+      "author": "mei",
+      "text": "Checking CDN config... no config changes in last 24h on our side. CDN vendor status page shows all green globally."
+    },
+    {
+      "timestamp": "09:22",
+      "author": "david",
+      "text": "CDN vendor status pages lie all the time. I'm escalating to their support team. This feels like a silent CDN issue."
+    },
+    {
+      "timestamp": "09:23",
+      "author": "priya_sre",
+      "text": "I've been in this company 8 years. When CDN drops like this it is ALWAYS a bad cache-control header pushed by a recent deploy. Has to be CDN-side or a header issue."
+    },
+    {
+      "timestamp": "09:24",
+      "author": "mei",
+      "text": "No deploys in last 2 hours according to deploy log. Log is clean."
+    },
+    {
+      "timestamp": "09:24",
+      "author": "priya_sre",
+      "text": "Then it must be the CDN vendor having a silent regional issue. David is right, escalate to them."
+    },
+    {
+      "timestamp": "09:25",
+      "author": "chen",
+      "text": "Auth latency is also elevated to 1.8s from normal 0.3s. Could auth be the real bottleneck? If auth is slow, checkout fails, retries hammer everything including CDN."
+    },
+    {
+      "timestamp": "09:26",
+      "author": "david",
+      "text": "Auth elevation is probably a downstream symptom of the CDN overload causing retry storms. CDN first."
+    },
+    {
+      "timestamp": "09:27",
+      "author": "mei",
+      "text": "Looking at recommendations logs more carefully. It went down right when we started seeing CDN issues. Still think CDN is the trigger."
+    },
+    {
+      "timestamp": "09:29",
+      "author": "chen",
+      "text": "Tried bypassing CDN for recommendations \u2014 still getting errors. Maybe not CDN after all?"
+    },
+    {
+      "timestamp": "09:31",
+      "author": "david",
+      "text": "Even bypassing CDN recommendations is broken? Then something upstream of recommendations is broken. Could be a dependency."
+    },
+    {
+      "timestamp": "09:33",
+      "author": "mei",
+      "text": "Checking recommendations dependencies... it depends on data-pipeline for ML features. data-pipeline might be relevant here."
+    },
+    {
+      "timestamp": "09:38",
+      "author": "mei",
+      "text": "Rolled back something on data-pipeline side. Data pipeline resuming. ML model hot-reloading."
+    },
+    {
+      "timestamp": "09:47",
+      "author": "mei",
+      "text": "Full recovery confirmed. Post-mortem needed. Will share findings once I've confirmed root cause fully."
+    }
   ],
-
   "service_graph": [
-    {"service": "api-gateway",       "depends_on": ["checkout", "recommendations", "auth", "cdn"]},
-    {"service": "checkout",          "depends_on": ["auth", "payments", "inventory"]},
-    {"service": "recommendations",   "depends_on": ["data-pipeline", "cdn"]},
-    {"service": "cdn",               "depends_on": ["recommendations", "catalog"]},
-    {"service": "auth",              "depends_on": ["postgres-auth"]},
-    {"service": "data-pipeline",     "depends_on": ["feature-store", "ml-model-registry"]},
-    {"service": "feature-store",     "depends_on": ["postgres-features"]},
-    {"service": "payments",          "depends_on": ["postgres-payments"]},
-    {"service": "inventory",         "depends_on": ["postgres-inventory"]}
+    {
+      "service": "api-gateway",
+      "depends_on": [
+        "checkout",
+        "recommendations",
+        "auth",
+        "cdn"
+      ]
+    },
+    {
+      "service": "checkout",
+      "depends_on": [
+        "auth",
+        "payments",
+        "inventory"
+      ]
+    },
+    {
+      "service": "recommendations",
+      "depends_on": [
+        "data-pipeline",
+        "cdn"
+      ]
+    },
+    {
+      "service": "cdn",
+      "depends_on": [
+        "recommendations",
+        "catalog"
+      ]
+    },
+    {
+      "service": "auth",
+      "depends_on": [
+        "postgres-auth"
+      ]
+    },
+    {
+      "service": "data-pipeline",
+      "depends_on": [
+        "feature-store",
+        "ml-model-registry"
+      ]
+    },
+    {
+      "service": "feature-store",
+      "depends_on": [
+        "postgres-features"
+      ]
+    },
+    {
+      "service": "payments",
+      "depends_on": [
+        "postgres-payments"
+      ]
+    },
+    {
+      "service": "inventory",
+      "depends_on": [
+        "postgres-inventory"
+      ]
+    }
   ],
-
-  "relevant_services": ["data-pipeline", "feature-store", "recommendations"],
-
+  "relevant_services": [
+    "data-pipeline",
+    "feature-store",
+    "recommendations"
+  ],
   "evidence_windows": [
     {
       "window_id": "schema_migration_evidence",
@@ -68,19 +266,54 @@
       "to_time": "09:14",
       "overlap_required_minutes": 2,
       "logs": [
-        {"timestamp": "09:10:01", "service": "data-pipeline",  "severity": "INFO",    "message": "Feature store schema migration v14→v15 started"},
-        {"timestamp": "09:10:45", "service": "data-pipeline",  "severity": "INFO",    "message": "Feature vector format updated: added embedding_v2 field, deprecated embedding_v1"},
-        {"timestamp": "09:11:00", "service": "data-pipeline",  "severity": "INFO",    "message": "Schema migration complete — feature store now serving v15 format"},
-        {"timestamp": "09:11:30", "service": "recommendations","severity": "ERROR",   "message": "ML model inference failed: KeyError 'embedding_v1' — feature not found in payload"},
-        {"timestamp": "09:11:45", "service": "recommendations","severity": "ERROR",   "message": "ML model inference failed: KeyError 'embedding_v1' — retrying (1/3)"},
-        {"timestamp": "09:12:00", "service": "recommendations","severity": "CRITICAL","message": "ML model inference failed after 3 retries — recommendation engine degraded"},
-        {"timestamp": "09:12:05", "service": "recommendations","severity": "WARN",    "message": "Falling back to static recommendations — p99 latency now 3.2s"}
+        {
+          "timestamp": "09:10:01",
+          "service": "data-pipeline",
+          "severity": "INFO",
+          "message": "Feature store schema migration v14\u2192v15 started"
+        },
+        {
+          "timestamp": "09:10:45",
+          "service": "data-pipeline",
+          "severity": "INFO",
+          "message": "Feature vector format updated: added embedding_v2 field, deprecated embedding_v1"
+        },
+        {
+          "timestamp": "09:11:00",
+          "service": "data-pipeline",
+          "severity": "INFO",
+          "message": "Schema migration complete \u2014 feature store now serving v15 format"
+        },
+        {
+          "timestamp": "09:11:30",
+          "service": "recommendations",
+          "severity": "ERROR",
+          "message": "ML model inference failed: KeyError 'embedding_v1' \u2014 feature not found in payload"
+        },
+        {
+          "timestamp": "09:11:45",
+          "service": "recommendations",
+          "severity": "ERROR",
+          "message": "ML model inference failed: KeyError 'embedding_v1' \u2014 retrying (1/3)"
+        },
+        {
+          "timestamp": "09:12:00",
+          "service": "recommendations",
+          "severity": "CRITICAL",
+          "message": "ML model inference failed after 3 retries \u2014 recommendation engine degraded"
+        },
+        {
+          "timestamp": "09:12:05",
+          "service": "recommendations",
+          "severity": "WARN",
+          "message": "Falling back to static recommendations \u2014 p99 latency now 3.2s"
+        }
       ],
       "key_evidence_strings": [
         "schema migration",
         "embedding_v1",
         "KeyError",
-        "v14→v15",
+        "v14\u2192v15",
         "feature not found"
       ]
     },
@@ -91,11 +324,36 @@
       "to_time": "09:20",
       "overlap_required_minutes": 2,
       "logs": [
-        {"timestamp": "09:12:30", "service": "cdn", "severity": "INFO", "message": "Cache miss for /recommendations/* — upstream returned 500, caching skipped"},
-        {"timestamp": "09:13:00", "service": "cdn", "severity": "INFO", "message": "Cache miss for /recommendations/* — upstream returned 500, caching skipped"},
-        {"timestamp": "09:13:20", "service": "cdn", "severity": "WARN", "message": "Cache hit rate dropping: recommendations endpoint returning errors, not caching"},
-        {"timestamp": "09:15:00", "service": "cdn", "severity": "WARN", "message": "Cache hit rate: 41% — driven by recommendations endpoint 100% miss rate"},
-        {"timestamp": "09:18:00", "service": "cdn", "severity": "ERROR","message": "Cache hit rate: 18% — recommendations accounts for 70% of cacheable content"}
+        {
+          "timestamp": "09:12:30",
+          "service": "cdn",
+          "severity": "INFO",
+          "message": "Cache miss for /recommendations/* \u2014 upstream returned 500, caching skipped"
+        },
+        {
+          "timestamp": "09:13:00",
+          "service": "cdn",
+          "severity": "INFO",
+          "message": "Cache miss for /recommendations/* \u2014 upstream returned 500, caching skipped"
+        },
+        {
+          "timestamp": "09:13:20",
+          "service": "cdn",
+          "severity": "WARN",
+          "message": "Cache hit rate dropping: recommendations endpoint returning errors, not caching"
+        },
+        {
+          "timestamp": "09:15:00",
+          "service": "cdn",
+          "severity": "WARN",
+          "message": "Cache hit rate: 41% \u2014 driven by recommendations endpoint 100% miss rate"
+        },
+        {
+          "timestamp": "09:18:00",
+          "service": "cdn",
+          "severity": "ERROR",
+          "message": "Cache hit rate: 18% \u2014 recommendations accounts for 70% of cacheable content"
+        }
       ],
       "key_evidence_strings": [
         "upstream returned 500",
@@ -105,12 +363,21 @@
       ]
     }
   ],
-
   "gold_standard": {
     "root_cause": {
       "service": "data-pipeline",
       "category": "deployment_bug",
-      "keywords": ["schema", "migration", "embedding", "feature", "v14", "v15", "ML", "model", "KeyError"],
+      "keywords": [
+        "schema",
+        "migration",
+        "embedding",
+        "feature",
+        "v14",
+        "v15",
+        "ML",
+        "model",
+        "KeyError"
+      ],
       "valid_phrasings": [
         "data-pipeline feature store schema migration broke recommendations ML model",
         "schema migration v14 to v15 changed feature vector format causing KeyError in ML inference",
@@ -121,32 +388,79 @@
     "false_root_causes": [
       {
         "service": "cdn",
-        "explanation": "CDN drop was a SYMPTOM — caused by recommendations returning 500s, not a CDN misconfiguration"
+        "explanation": "CDN drop was a SYMPTOM \u2014 caused by recommendations returning 500s, not a CDN misconfiguration"
       },
       {
         "service": "auth",
-        "explanation": "Auth elevation was a SYMPTOM — caused by user retry storms from broken recommendations page"
+        "explanation": "Auth elevation was a SYMPTOM \u2014 caused by user retry storms from broken recommendations page"
       }
     ],
     "timeline_events": [
-      {"time": "09:10", "event": "deployment",   "service": "data-pipeline",    "label": "Feature store schema migration v14→v15"},
-      {"time": "09:12", "event": "degradation",  "service": "recommendations",  "label": "Recommendations latency spike"},
-      {"time": "09:13", "event": "degradation",  "service": "cdn",              "label": "CDN cache hit rate drops"},
-      {"time": "09:16", "event": "service_down", "service": "recommendations",  "label": "Recommendations health check failed"},
-      {"time": "09:38", "event": "remediation",  "service": "data-pipeline",    "label": "Feature store schema rolled back"},
-      {"time": "09:47", "event": "recovery",     "service": "checkout",         "label": "Full recovery confirmed"}
+      {
+        "time": "09:10",
+        "event": "deployment",
+        "service": "data-pipeline",
+        "label": "Feature store schema migration v14\u2192v15"
+      },
+      {
+        "time": "09:12",
+        "event": "degradation",
+        "service": "recommendations",
+        "label": "Recommendations latency spike"
+      },
+      {
+        "time": "09:13",
+        "event": "degradation",
+        "service": "cdn",
+        "label": "CDN cache hit rate drops"
+      },
+      {
+        "time": "09:16",
+        "event": "service_down",
+        "service": "recommendations",
+        "label": "Recommendations health check failed"
+      },
+      {
+        "time": "09:38",
+        "event": "remediation",
+        "service": "data-pipeline",
+        "label": "Feature store schema rolled back"
+      },
+      {
+        "time": "09:47",
+        "event": "recovery",
+        "service": "checkout",
+        "label": "Full recovery confirmed"
+      }
     ],
-    "timeline_tolerance_minutes": 4,
+    "timeline_tolerance_minutes": 2,
     "required_action_item_themes": [
       "schema migration testing",
       "ML model compatibility checks before migration",
       "feature store versioning",
       "improve pre-deploy validation"
     ],
-    "known_teams": ["data-team", "ml-team", "sre", "platform", "mei", "david", "chen", "priya_sre"],
-    "valid_due_date_patterns": ["\\d{4}-\\d{2}-\\d{2}", "\\d{1,2}/\\d{1,2}", "in \\d+ days?", "next sprint", "this week"]
+    "known_teams": [
+      "data-team",
+      "ml-team",
+      "sre",
+      "platform",
+      "mei",
+      "david",
+      "chen",
+      "priya_sre"
+    ],
+    "valid_due_date_patterns": [
+      "\\d{4}-\\d{2}-\\d{2}",
+      "\\d{1,2}/\\d{1,2}",
+      "in \\d+ days?",
+      "next sprint",
+      "this week"
+    ],
+    "hidden_timeline_events": [
+      "09:10"
+    ]
   },
-
   "traps": [
     {
       "trap_id": "trap_cdn",
@@ -164,24 +478,66 @@
       "trigger": "agent trusts Priya's hypothesis without querying data-pipeline"
     }
   ],
-
   "query_limits": {
     "max_queries": 8,
-    "penalty_schedule": [0.05, 0.08, 0.12, 0.18, 0.18, 0.18, 0.18, 0.18]
+    "penalty_schedule": [
+      0.05,
+      0.08,
+      0.12,
+      0.18,
+      0.18,
+      0.18,
+      0.18,
+      0.18
+    ]
   },
-
   "noise_logs": [
-    {"timestamp": "09:05:00", "service": "payments",   "severity": "INFO",  "message": "Payment processor batch job completed — 0 failures"},
-    {"timestamp": "09:08:00", "service": "inventory",  "severity": "INFO",  "message": "Inventory count sync job OK"},
-    {"timestamp": "09:09:00", "service": "auth",       "severity": "INFO",  "message": "Token rotation job completed successfully"},
-    {"timestamp": "09:11:00", "service": "catalog",    "severity": "INFO",  "message": "Product catalog index rebuild completed"},
-    {"timestamp": "09:15:00", "service": "payments",   "severity": "INFO",  "message": "Fraud model inference healthy — p99: 38ms"}
+    {
+      "timestamp": "09:05:00",
+      "service": "payments",
+      "severity": "INFO",
+      "message": "Payment processor batch job completed \u2014 0 failures"
+    },
+    {
+      "timestamp": "09:08:00",
+      "service": "inventory",
+      "severity": "INFO",
+      "message": "Inventory count sync job OK"
+    },
+    {
+      "timestamp": "09:09:00",
+      "service": "auth",
+      "severity": "INFO",
+      "message": "Token rotation job completed successfully"
+    },
+    {
+      "timestamp": "09:11:00",
+      "service": "catalog",
+      "severity": "INFO",
+      "message": "Product catalog index rebuild completed"
+    },
+    {
+      "timestamp": "09:15:00",
+      "service": "payments",
+      "severity": "INFO",
+      "message": "Fraud model inference healthy \u2014 p99: 38ms"
+    }
   ],
-
   "metadata": {
     "incident_duration_minutes": 35,
     "affected_users": 34200,
     "revenue_impact_usd": 512000,
     "severity": "SEV-1"
-  }
+  },
+  "service_graph_names": [
+    "api-gateway",
+    "checkout",
+    "recommendations",
+    "cdn",
+    "auth",
+    "data-pipeline",
+    "feature-store",
+    "payments",
+    "inventory"
+  ]
 }

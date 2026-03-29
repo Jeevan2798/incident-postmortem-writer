@@ -119,9 +119,19 @@ def extract_json(text: str) -> Optional[Dict]:
 
 QUERY_SYSTEM = """You are an expert SRE. Given incident alerts and Slack messages,
 identify the best service and time window to query for root cause evidence.
-Respond with ONLY valid JSON: {"service": "<name>", "from": "<HH:MM>", "to": "<HH:MM>"}
-Pick the service most likely to have the ROOT CAUSE (not just the most mentioned one).
-Time window: 5-10 minutes around when the incident first started."""
+Respond with ONLY valid JSON: {"service": "<service_name>", "from": "<HH:MM>", "to": "<HH:MM>"}
+
+STRATEGY - follow in this exact order:
+1. Look for DEPLOYMENT or CONFIG CHANGE in Slack (keywords: deploy, TTL, migration, release, config, schema).
+   If found, query THAT service at THAT deployment time. Deployments are almost always root cause.
+2. If no deployment, identify which service changed behavior FIRST and trace upstream dependencies.
+3. Pick a 5-8 minute window AROUND the deployment or first change time.
+4. NEVER query the most-alerted service - it is usually a victim not the cause.
+
+EXAMPLES:
+- Slack says deployed Redis caching layer at 13:55 -> {"service": "redis-auth", "from": "13:53", "to": "13:58"}
+- Slack says schema migration at 09:10 on data-pipeline -> {"service": "data-pipeline", "from": "09:08", "to": "09:14"}
+- Alerts show auth failing but Slack mentions Redis deploy -> query redis-auth NOT auth"""
 
 def phase_query(env, observation, result):
     alerts_text = "\n".join(
@@ -274,6 +284,8 @@ def phase_write(env, observation, result, logs_found):
         reward = result.get("reward", {}).get("total", 0.0)
         msg = observation.get("last_action_result", "")[:70]
         print(f"    reward={reward:+.3f} | {msg}")
+        if section == "root_cause":
+            print(f"    [ROOT CAUSE TEXT]: {content[:200]}")
 
     return result, observation
 

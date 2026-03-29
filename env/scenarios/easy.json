@@ -2,40 +2,134 @@
   "scenario_id": "easy_001",
   "difficulty": "easy",
   "incident_id": "INC-2024-001",
-  "incident_title": "Payments Service Outage — Database Connection Exhaustion",
+  "incident_title": "Payments Service Outage \u2014 Database Connection Exhaustion",
   "goal": "Write a complete incident post-mortem. Identify the root cause, reconstruct the timeline, assess impact, and assign action items with owners and due dates. Use QUERY_LOGS to gather evidence before writing.",
-
   "initial_alerts": [
-    {"timestamp": "03:41:05", "service": "payments", "severity": "WARN",     "message": "DB connection pool at 80% capacity"},
-    {"timestamp": "03:42:18", "service": "payments", "severity": "ERROR",    "message": "DB connection pool at 95% capacity — new requests queuing"},
-    {"timestamp": "03:43:55", "service": "payments", "severity": "CRITICAL", "message": "payments-service health check FAILED"},
-    {"timestamp": "03:44:10", "service": "api-gateway", "severity": "ERROR", "message": "Upstream payments-service returning 503"},
-    {"timestamp": "03:44:30", "service": "monitoring", "severity": "CRITICAL","message": "PagerDuty alert fired: payments DOWN"},
-    {"timestamp": "03:51:00", "service": "payments", "severity": "WARN",     "message": "On-call engineer acknowledged alert"},
-    {"timestamp": "04:02:45", "service": "payments", "severity": "INFO",     "message": "Rollback to v2.3.1 initiated"},
-    {"timestamp": "04:09:12", "service": "payments", "severity": "INFO",     "message": "payments-service health check PASSED — service recovered"}
+    {
+      "timestamp": "03:41:05",
+      "service": "payments",
+      "severity": "WARN",
+      "message": "DB connection pool at 80% capacity"
+    },
+    {
+      "timestamp": "03:42:18",
+      "service": "payments",
+      "severity": "ERROR",
+      "message": "DB connection pool at 95% capacity \u2014 new requests queuing"
+    },
+    {
+      "timestamp": "03:43:55",
+      "service": "payments",
+      "severity": "CRITICAL",
+      "message": "payments-service health check FAILED"
+    },
+    {
+      "timestamp": "03:44:10",
+      "service": "api-gateway",
+      "severity": "ERROR",
+      "message": "Upstream payments-service returning 503"
+    },
+    {
+      "timestamp": "03:44:30",
+      "service": "monitoring",
+      "severity": "CRITICAL",
+      "message": "PagerDuty alert fired: payments DOWN"
+    },
+    {
+      "timestamp": "03:51:00",
+      "service": "payments",
+      "severity": "WARN",
+      "message": "On-call engineer acknowledged alert"
+    },
+    {
+      "timestamp": "04:02:45",
+      "service": "payments",
+      "severity": "INFO",
+      "message": "Rollback to v2.3.1 initiated"
+    },
+    {
+      "timestamp": "04:09:12",
+      "service": "payments",
+      "severity": "INFO",
+      "message": "payments-service health check PASSED \u2014 service recovered"
+    }
   ],
-
   "slack_thread": [
-    {"timestamp": "03:44", "author": "pagerduty-bot",  "text": "🚨 ALERT: payments-service is DOWN. On-call: @sara"},
-    {"timestamp": "03:51", "author": "sara",           "text": "On it. Seeing DB connection errors. Pulling logs now."},
-    {"timestamp": "03:54", "author": "sara",           "text": "Looks like connection pool is exhausted. Might be a connection leak in the new release."},
-    {"timestamp": "03:56", "author": "james",          "text": "We deployed v2.4.0 at 03:38. That's the only change today."},
-    {"timestamp": "03:58", "author": "sara",           "text": "Confirmed. v2.4.0 introduced a bug where DB connections aren't released after failed transactions. Rolling back."},
-    {"timestamp": "04:02", "author": "sara",           "text": "Rollback to v2.3.1 in progress."},
-    {"timestamp": "04:09", "author": "sara",           "text": "Service is back. All health checks green. Post-mortem needed."}
+    {
+      "timestamp": "03:44",
+      "author": "pagerduty-bot",
+      "text": "\ud83d\udea8 ALERT: payments-service is DOWN. On-call: @sara"
+    },
+    {
+      "timestamp": "03:51",
+      "author": "sara",
+      "text": "On it. Seeing DB connection errors. Pulling logs now."
+    },
+    {
+      "timestamp": "03:54",
+      "author": "sara",
+      "text": "Looks like connection pool is exhausted. Might be a connection leak in the new release."
+    },
+    {
+      "timestamp": "03:56",
+      "author": "james",
+      "text": "We deployed v2.4.0 at 03:38. That's the only change today."
+    },
+    {
+      "timestamp": "03:58",
+      "author": "sara",
+      "text": "Confirmed. v2.4.0 introduced a bug where DB connections aren't released after failed transactions. Rolling back."
+    },
+    {
+      "timestamp": "04:02",
+      "author": "sara",
+      "text": "Rollback to v2.3.1 in progress."
+    },
+    {
+      "timestamp": "04:09",
+      "author": "sara",
+      "text": "Service is back. All health checks green. Post-mortem needed."
+    }
   ],
-
   "service_graph": [
-    {"service": "api-gateway",  "depends_on": ["payments", "auth", "catalog"]},
-    {"service": "payments",     "depends_on": ["postgres-payments", "fraud-check"]},
-    {"service": "fraud-check",  "depends_on": ["postgres-fraud"]},
-    {"service": "auth",         "depends_on": ["postgres-auth"]},
-    {"service": "catalog",      "depends_on": ["postgres-catalog"]}
+    {
+      "service": "api-gateway",
+      "depends_on": [
+        "payments",
+        "auth",
+        "catalog"
+      ]
+    },
+    {
+      "service": "payments",
+      "depends_on": [
+        "postgres-payments",
+        "fraud-check"
+      ]
+    },
+    {
+      "service": "fraud-check",
+      "depends_on": [
+        "postgres-fraud"
+      ]
+    },
+    {
+      "service": "auth",
+      "depends_on": [
+        "postgres-auth"
+      ]
+    },
+    {
+      "service": "catalog",
+      "depends_on": [
+        "postgres-catalog"
+      ]
+    }
   ],
-
-  "relevant_services": ["payments", "postgres-payments"],
-
+  "relevant_services": [
+    "payments",
+    "postgres-payments"
+  ],
   "evidence_windows": [
     {
       "window_id": "key_evidence",
@@ -44,13 +138,48 @@
       "to_time": "03:43",
       "overlap_required_minutes": 2,
       "logs": [
-        {"timestamp": "03:38:12", "service": "payments", "severity": "INFO",  "message": "Deployment v2.4.0 started"},
-        {"timestamp": "03:38:55", "service": "payments", "severity": "INFO",  "message": "Deployment v2.4.0 complete"},
-        {"timestamp": "03:39:30", "service": "payments", "severity": "DEBUG", "message": "PaymentProcessor.charge() — connection acquired from pool"},
-        {"timestamp": "03:40:01", "service": "payments", "severity": "WARN",  "message": "PaymentProcessor.charge() — transaction failed, connection NOT released [connection leak]"},
-        {"timestamp": "03:40:45", "service": "payments", "severity": "WARN",  "message": "PaymentProcessor.charge() — connection acquired from pool [pool: 45/50]"},
-        {"timestamp": "03:41:02", "service": "payments", "severity": "WARN",  "message": "PaymentProcessor.charge() — transaction failed, connection NOT released [connection leak]"},
-        {"timestamp": "03:41:05", "service": "payments", "severity": "WARN",  "message": "DB connection pool at 80% [40/50 connections active]"}
+        {
+          "timestamp": "03:38:12",
+          "service": "payments",
+          "severity": "INFO",
+          "message": "Deployment v2.4.0 started"
+        },
+        {
+          "timestamp": "03:38:55",
+          "service": "payments",
+          "severity": "INFO",
+          "message": "Deployment v2.4.0 complete"
+        },
+        {
+          "timestamp": "03:39:30",
+          "service": "payments",
+          "severity": "DEBUG",
+          "message": "PaymentProcessor.charge() \u2014 connection acquired from pool"
+        },
+        {
+          "timestamp": "03:40:01",
+          "service": "payments",
+          "severity": "WARN",
+          "message": "PaymentProcessor.charge() \u2014 transaction failed, connection NOT released [connection leak]"
+        },
+        {
+          "timestamp": "03:40:45",
+          "service": "payments",
+          "severity": "WARN",
+          "message": "PaymentProcessor.charge() \u2014 connection acquired from pool [pool: 45/50]"
+        },
+        {
+          "timestamp": "03:41:02",
+          "service": "payments",
+          "severity": "WARN",
+          "message": "PaymentProcessor.charge() \u2014 transaction failed, connection NOT released [connection leak]"
+        },
+        {
+          "timestamp": "03:41:05",
+          "service": "payments",
+          "severity": "WARN",
+          "message": "DB connection pool at 80% [40/50 connections active]"
+        }
       ],
       "key_evidence_strings": [
         "connection NOT released",
@@ -59,12 +188,18 @@
       ]
     }
   ],
-
   "gold_standard": {
     "root_cause": {
       "service": "payments",
       "category": "deployment_bug",
-      "keywords": ["connection", "leak", "v2.4.0", "pool", "release", "transaction"],
+      "keywords": [
+        "connection",
+        "leak",
+        "v2.4.0",
+        "pool",
+        "release",
+        "transaction"
+      ],
       "valid_phrasings": [
         "DB connection not released after failed transaction",
         "connection leak in v2.4.0",
@@ -73,33 +208,102 @@
       ]
     },
     "timeline_events": [
-      {"time": "03:38", "event": "deployment",       "service": "payments",  "label": "v2.4.0 deployed"},
-      {"time": "03:41", "event": "first_alert",      "service": "payments",  "label": "connection pool WARN"},
-      {"time": "03:43", "event": "service_down",     "service": "payments",  "label": "payments health check failed"},
-      {"time": "04:02", "event": "remediation",      "service": "payments",  "label": "rollback initiated"},
-      {"time": "04:09", "event": "recovery",         "service": "payments",  "label": "service recovered"}
+      {
+        "time": "03:38",
+        "event": "deployment",
+        "service": "payments",
+        "label": "v2.4.0 deployed"
+      },
+      {
+        "time": "03:41",
+        "event": "first_alert",
+        "service": "payments",
+        "label": "connection pool WARN"
+      },
+      {
+        "time": "03:43",
+        "event": "service_down",
+        "service": "payments",
+        "label": "payments health check failed"
+      },
+      {
+        "time": "04:02",
+        "event": "remediation",
+        "service": "payments",
+        "label": "rollback initiated"
+      },
+      {
+        "time": "04:09",
+        "event": "recovery",
+        "service": "payments",
+        "label": "service recovered"
+      }
     ],
     "timeline_tolerance_minutes": 3,
-    "required_action_item_themes": ["fix connection leak", "add pool monitoring", "improve deployment testing"],
-    "known_teams": ["payments-team", "sre", "platform", "sara", "james"],
-    "valid_due_date_patterns": ["\\d{4}-\\d{2}-\\d{2}", "\\d{1,2}/\\d{1,2}", "in \\d+ days?", "next sprint", "this week"]
+    "required_action_item_themes": [
+      "fix connection leak",
+      "add pool monitoring",
+      "improve deployment testing"
+    ],
+    "known_teams": [
+      "payments-team",
+      "sre",
+      "platform",
+      "sara",
+      "james"
+    ],
+    "valid_due_date_patterns": [
+      "\\d{4}-\\d{2}-\\d{2}",
+      "\\d{1,2}/\\d{1,2}",
+      "in \\d+ days?",
+      "next sprint",
+      "this week"
+    ]
   },
-
   "query_limits": {
     "max_queries": 8,
-    "penalty_schedule": [0.05, 0.08, 0.12, 0.18, 0.18, 0.18, 0.18, 0.18]
+    "penalty_schedule": [
+      0.05,
+      0.08,
+      0.12,
+      0.18,
+      0.18,
+      0.18,
+      0.18,
+      0.18
+    ]
   },
-
   "noise_logs": [
-    {"timestamp": "03:30:00", "service": "catalog",  "severity": "INFO",  "message": "Routine cache warm-up completed"},
-    {"timestamp": "03:35:00", "service": "auth",     "severity": "INFO",  "message": "Token rotation job ran successfully"},
-    {"timestamp": "03:50:00", "service": "fraud-check","severity":"INFO",  "message": "Fraud model inference p99 latency: 42ms — within SLA"}
+    {
+      "timestamp": "03:30:00",
+      "service": "catalog",
+      "severity": "INFO",
+      "message": "Routine cache warm-up completed"
+    },
+    {
+      "timestamp": "03:35:00",
+      "service": "auth",
+      "severity": "INFO",
+      "message": "Token rotation job ran successfully"
+    },
+    {
+      "timestamp": "03:50:00",
+      "service": "fraud-check",
+      "severity": "INFO",
+      "message": "Fraud model inference p99 latency: 42ms \u2014 within SLA"
+    }
   ],
-
   "metadata": {
     "incident_duration_minutes": 28,
     "affected_users": 1240,
     "revenue_impact_usd": 18600,
     "severity": "SEV-2"
-  }
+  },
+  "service_graph_names": [
+    "api-gateway",
+    "payments",
+    "fraud-check",
+    "auth",
+    "catalog"
+  ]
 }
