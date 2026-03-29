@@ -1,3 +1,19 @@
+---
+title: Incident Post-Mortem Writer
+emoji: 🚨
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+tags:
+  - openenv
+  - rl
+  - environment
+  - sre
+  - nlp
+---
+
 # Incident Post-Mortem Writer
 
 An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agents learn to write structured incident post-mortems from raw alert logs, Slack threads, and service dependency graphs.
