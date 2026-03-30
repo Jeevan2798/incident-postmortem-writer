@@ -48,6 +48,7 @@ _http_envs: Dict[str, PostMortemEnvironment] = {
     "easy":   PostMortemEnvironment(difficulty="easy"),
     "medium": PostMortemEnvironment(difficulty="medium"),
     "hard":   PostMortemEnvironment(difficulty="hard"),
+    "expert": PostMortemEnvironment(difficulty="expert"),
 }
 _active_difficulty = os.environ.get("DIFFICULTY", "easy")
 
@@ -164,6 +165,7 @@ def list_tasks() -> Dict[str, Any]:
             {"id": "easy",   "name": "Single-Service Database Outage",            "difficulty": "easy",   "max_steps": 25, "max_queries": 8},
             {"id": "medium", "name": "Cascading Microservices Failure",            "difficulty": "medium", "max_steps": 25, "max_queries": 8},
             {"id": "hard",   "name": "Multi-Service Degradation with False Causes","difficulty": "hard",   "max_steps": 25, "max_queries": 8},
+            {"id": "expert", "name": "Security Breach — Compromised API Credential",   "difficulty": "expert", "max_steps": 25, "max_queries": 6},
         ]
     }
 

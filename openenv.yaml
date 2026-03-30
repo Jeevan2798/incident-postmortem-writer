@@ -3,7 +3,7 @@ version: "1.0.0"
 description: >
   An OpenEnv environment where an AI agent learns to write structured
   incident post-mortems from raw alert logs, Slack threads, and service
-  dependency graphs. Covers 3 difficulty levels: easy, medium, and hard.
+  dependency graphs. Covers 4 difficulty levels: easy, medium, hard, and expert (security breach).
 
 author: postmortem-env
 license: MIT
@@ -46,6 +46,19 @@ environment:
         Three simultaneous failures, two false root causes planted in Slack,
         a senior engineer confidently wrong. Real evidence only accessible
         via a precise QUERY_LOGS call in a non-obvious time window.
+      max_steps: 25
+
+    - id: expert
+      name: "Security Breach — Compromised API Credential"
+      difficulty: expert
+      description: >
+        A security breach via stolen API key used from a Tor exit node.
+        Three false root causes: rate-limiter alerts, auth anomalies, and a
+        scheduled load test using the same key. A senior security engineer
+        with 12 years experience is confidently wrong twice. Real evidence
+        requires querying a precise 3-minute api-gateway audit log window.
+        GDPR notification required. Query budget reduced to 6 with steeper
+        penalties. Four timeline events hidden behind the correct query.
       max_steps: 25
       max_queries: 8
 

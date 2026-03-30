@@ -1,0 +1,511 @@
+{
+  "scenario_id": "expert_001",
+  "difficulty": "expert",
+  "incident_id": "INC-2024-099",
+  "incident_title": "Security Breach \u2014 Unauthorized Data Access via Compromised API Key",
+  "goal": "Write a complete incident post-mortem for a security breach. WARNING: Three false root causes are planted. A load test, rate limiter alerts, and auth service warnings all look suspicious but are distractions. The real evidence requires querying a precise 3-minute window in api-gateway audit logs. A senior security engineer is confidently wrong. You must identify the compromised API key and the Tor exit node as root cause.",
+  "initial_alerts": [
+    {
+      "timestamp": "02:47:03",
+      "service": "rate-limiter",
+      "severity": "WARN",
+      "message": "API rate limit approaching: 78% used by svc-reporting-prod key"
+    },
+    {
+      "timestamp": "02:48:15",
+      "service": "api-gateway",
+      "severity": "WARN",
+      "message": "Unusual request pattern: high volume GET /api/customers/* from single API key"
+    },
+    {
+      "timestamp": "02:49:30",
+      "service": "auth-service",
+      "severity": "WARN",
+      "message": "Token validation requests elevated: 340/min vs normal 45/min"
+    },
+    {
+      "timestamp": "02:51:00",
+      "service": "rate-limiter",
+      "severity": "ERROR",
+      "message": "Rate limit EXCEEDED: svc-reporting-prod blocked \u2014 1200 requests in 60s"
+    },
+    {
+      "timestamp": "02:51:45",
+      "service": "customer-data",
+      "severity": "ERROR",
+      "message": "Bulk read operation: 847 customer records accessed in 4 minutes"
+    },
+    {
+      "timestamp": "02:52:00",
+      "service": "monitoring",
+      "severity": "CRITICAL",
+      "message": "PagerDuty SEV-1: Anomalous data access pattern \u2014 possible security incident"
+    },
+    {
+      "timestamp": "02:53:10",
+      "service": "auth-service",
+      "severity": "ERROR",
+      "message": "Multiple failed auth attempts from IP 185.220.101.47 \u2014 possible credential stuffing"
+    },
+    {
+      "timestamp": "02:54:00",
+      "service": "api-gateway",
+      "severity": "CRITICAL",
+      "message": "Security policy violation: svc-reporting-prod accessing customer PII \u2014 not in approved scope"
+    },
+    {
+      "timestamp": "02:58:00",
+      "service": "rate-limiter",
+      "severity": "INFO",
+      "message": "svc-reporting-prod key suspended pending security review"
+    },
+    {
+      "timestamp": "03:02:00",
+      "service": "auth-service",
+      "severity": "INFO",
+      "message": "IP 185.220.101.47 blocked by WAF rule"
+    },
+    {
+      "timestamp": "03:08:00",
+      "service": "customer-data",
+      "severity": "INFO",
+      "message": "Bulk read operations ceased \u2014 access pattern returned to normal"
+    },
+    {
+      "timestamp": "03:15:00",
+      "service": "monitoring",
+      "severity": "INFO",
+      "message": "Security team engaged \u2014 forensic investigation initiated"
+    },
+    {
+      "timestamp": "03:47:00",
+      "service": "api-gateway",
+      "severity": "INFO",
+      "message": "Compromised API key svc-reporting-prod rotated and revoked"
+    },
+    {
+      "timestamp": "03:52:00",
+      "service": "monitoring",
+      "severity": "INFO",
+      "message": "Incident contained \u2014 847 affected accounts identified for notification"
+    }
+  ],
+  "slack_thread": [
+    {
+      "timestamp": "02:52",
+      "author": "pagerduty-bot",
+      "text": "\ud83d\udea8 SEV-1: Anomalous data access \u2014 847 customer records accessed in 4 minutes. On-call: @priya @marcus @chen"
+    },
+    {
+      "timestamp": "02:53",
+      "author": "priya",
+      "text": "On it. Seeing rate limit alerts and elevated auth traffic. Could be our load test from tonight."
+    },
+    {
+      "timestamp": "02:54",
+      "author": "marcus",
+      "text": "I scheduled a load test for 02:30 on the reporting service using svc-reporting-prod key. This is probably it."
+    },
+    {
+      "timestamp": "02:55",
+      "author": "chen",
+      "text": "Rate limiter is showing svc-reporting-prod exceeded limits. Almost certainly the load test causing bulk reads."
+    },
+    {
+      "timestamp": "02:56",
+      "author": "priya",
+      "text": "Load test was targeting /api/reports/* not /api/customers/*. But the same key is used. Could be a config error."
+    },
+    {
+      "timestamp": "02:57",
+      "author": "marcus",
+      "text": "Yeah the test script might have hit the wrong endpoint. Easy to misconfigure. I'll own this if it's my fault."
+    },
+    {
+      "timestamp": "02:58",
+      "author": "alex_sec",
+      "text": "I have 12 years in security. Rate limit spike + bulk PII reads at 3 AM is textbook load test gone wrong. Do NOT escalate to CISO yet. Marcus, check your test config."
+    },
+    {
+      "timestamp": "02:59",
+      "author": "priya",
+      "text": "Also seeing failed auth attempts from an unfamiliar IP. Auth service noise is elevated. Could be related to load test or separate issue."
+    },
+    {
+      "timestamp": "03:00",
+      "author": "marcus",
+      "text": "Checking my load test runner IP... it's a GCP VM at 34.125.88.201. The unfamiliar IP isn't mine."
+    },
+    {
+      "timestamp": "03:01",
+      "author": "alex_sec",
+      "text": "Multiple IPs are normal when cloud runners spin up dynamically. Still think this is a load test misconfiguration. Stand down on the CISO escalation."
+    },
+    {
+      "timestamp": "03:02",
+      "author": "chen",
+      "text": "Auth anomaly detection might be firing false positives. It is overly sensitive sometimes. Probably noise."
+    },
+    {
+      "timestamp": "03:03",
+      "author": "priya",
+      "text": "I'm going to pull api-gateway audit logs directly. Something doesn't add up about this being a load test."
+    },
+    {
+      "timestamp": "03:08",
+      "author": "priya",
+      "text": "I found something in the api-gateway logs. This is not the load test. Escalating to CISO now. Do not discuss details here."
+    },
+    {
+      "timestamp": "03:11",
+      "author": "marcus",
+      "text": "Priya what did you find? Is this serious?"
+    },
+    {
+      "timestamp": "03:12",
+      "author": "priya",
+      "text": "Moving to secure channel. Key revocation in progress. 847 accounts need review. Post-mortem required."
+    },
+    {
+      "timestamp": "03:47",
+      "author": "priya",
+      "text": "Contained. Full details in the post-mortem. GDPR notification timeline starts now."
+    }
+  ],
+  "service_graph": [
+    {
+      "service": "api-gateway",
+      "depends_on": [
+        "auth-service",
+        "rate-limiter",
+        "customer-data",
+        "reporting-service"
+      ]
+    },
+    {
+      "service": "auth-service",
+      "depends_on": [
+        "postgres-auth",
+        "redis-sessions"
+      ]
+    },
+    {
+      "service": "rate-limiter",
+      "depends_on": [
+        "redis-ratelimit"
+      ]
+    },
+    {
+      "service": "customer-data",
+      "depends_on": [
+        "postgres-customers"
+      ]
+    },
+    {
+      "service": "reporting-service",
+      "depends_on": [
+        "postgres-reports",
+        "api-gateway"
+      ]
+    },
+    {
+      "service": "redis-sessions",
+      "depends_on": []
+    },
+    {
+      "service": "redis-ratelimit",
+      "depends_on": []
+    },
+    {
+      "service": "postgres-auth",
+      "depends_on": []
+    },
+    {
+      "service": "postgres-customers",
+      "depends_on": []
+    },
+    {
+      "service": "postgres-reports",
+      "depends_on": []
+    }
+  ],
+  "relevant_services": [
+    "api-gateway",
+    "auth-service",
+    "svc-reporting-prod"
+  ],
+  "evidence_windows": [
+    {
+      "window_id": "breach_evidence",
+      "service": "api-gateway",
+      "from_time": "02:47",
+      "to_time": "02:49",
+      "overlap_required_minutes": 2,
+      "logs": [
+        {
+          "timestamp": "02:47:05",
+          "service": "api-gateway",
+          "severity": "INFO",
+          "message": "API key svc-reporting-prod authenticated from IP 185.220.101.47"
+        },
+        {
+          "timestamp": "02:47:08",
+          "service": "api-gateway",
+          "severity": "INFO",
+          "message": "GET /api/customers/10023/profile \u2014 key: svc-reporting-prod \u2014 ip: 185.220.101.47"
+        },
+        {
+          "timestamp": "02:47:12",
+          "service": "api-gateway",
+          "severity": "WARN",
+          "message": "Scope violation: svc-reporting-prod accessing /api/customers/* \u2014 approved scope is /api/reports/* only"
+        },
+        {
+          "timestamp": "02:47:15",
+          "service": "api-gateway",
+          "severity": "WARN",
+          "message": "GeoIP: 185.220.101.47 identified as Tor exit node (AbuseIPDB confidence: 98%)"
+        },
+        {
+          "timestamp": "02:48:30",
+          "service": "api-gateway",
+          "severity": "ERROR",
+          "message": "847 customer PII records accessed via svc-reporting-prod from Tor exit node 185.220.101.47"
+        },
+        {
+          "timestamp": "02:49:00",
+          "service": "api-gateway",
+          "severity": "CRITICAL",
+          "message": "SECURITY ALERT: API key outside approved scope + Tor source = credential compromise confirmed"
+        }
+      ],
+      "key_evidence_strings": [
+        "Tor exit node",
+        "185.220.101.47",
+        "svc-reporting-prod",
+        "Scope violation",
+        "credential compromise"
+      ]
+    },
+    {
+      "window_id": "load_test_alibi",
+      "service": "reporting-service",
+      "from_time": "02:30",
+      "to_time": "02:50",
+      "overlap_required_minutes": 2,
+      "logs": [
+        {
+          "timestamp": "02:30:00",
+          "service": "reporting-service",
+          "severity": "INFO",
+          "message": "Load test started \u2014 target: /api/reports/* \u2014 runner IP: 34.125.88.201"
+        },
+        {
+          "timestamp": "02:30:05",
+          "service": "reporting-service",
+          "severity": "INFO",
+          "message": "Load test using key: svc-reporting-prod from IP 34.125.88.201 (GCP cloud runner \u2014 NOT Tor)"
+        },
+        {
+          "timestamp": "02:45:00",
+          "service": "reporting-service",
+          "severity": "INFO",
+          "message": "Load test completed \u2014 0 errors \u2014 all requests to /api/reports/* only \u2014 no customer PII accessed"
+        }
+      ],
+      "key_evidence_strings": [
+        "Load test completed",
+        "34.125.88.201",
+        "NOT Tor",
+        "no customer PII"
+      ]
+    }
+  ],
+  "gold_standard": {
+    "root_cause": {
+      "service": "api-gateway",
+      "category": "security_breach",
+      "keywords": [
+        "svc-reporting-prod",
+        "185.220.101",
+        "scope violation",
+        "credential",
+        "api-key",
+        "stolen"
+      ],
+      "valid_phrasings": [
+        "API key svc-reporting-prod was compromised and used by attacker via Tor exit node",
+        "Stolen API key used from Tor exit node to access customer PII",
+        "svc-reporting-prod credential compromise via Tor",
+        "Unauthorized access via compromised API key from known Tor exit node 185.220.101.47"
+      ]
+    },
+    "false_root_causes": [
+      {
+        "service": "rate-limiter",
+        "explanation": "Rate limiter alerts were a symptom of attacker volume, not the cause"
+      },
+      {
+        "service": "auth-service",
+        "explanation": "Auth anomalies were noise from credential stuffing attempts, not root cause"
+      },
+      {
+        "service": "reporting-service",
+        "explanation": "Load test ran correctly on different endpoints from different IP \u2014 innocent"
+      }
+    ],
+    "timeline_events": [
+      {
+        "time": "02:30",
+        "event": "load_test",
+        "service": "reporting-service",
+        "label": "Legitimate load test started"
+      },
+      {
+        "time": "02:47",
+        "event": "breach_start",
+        "service": "api-gateway",
+        "label": "Attacker begins accessing customer data via Tor"
+      },
+      {
+        "time": "02:51",
+        "event": "rate_limit",
+        "service": "rate-limiter",
+        "label": "Rate limit exceeded \u2014 attacker request volume"
+      },
+      {
+        "time": "02:52",
+        "event": "alert_fired",
+        "service": "monitoring",
+        "label": "SEV-1 alert fired"
+      },
+      {
+        "time": "02:58",
+        "event": "key_suspended",
+        "service": "rate-limiter",
+        "label": "Compromised key suspended"
+      },
+      {
+        "time": "03:02",
+        "event": "ip_blocked",
+        "service": "auth-service",
+        "label": "Attacker IP blocked by WAF"
+      },
+      {
+        "time": "03:47",
+        "event": "key_revoked",
+        "service": "api-gateway",
+        "label": "Compromised key rotated and revoked"
+      },
+      {
+        "time": "03:52",
+        "event": "containment",
+        "service": "monitoring",
+        "label": "847 affected accounts identified"
+      }
+    ],
+    "timeline_tolerance_minutes": 3,
+    "hidden_timeline_events": [
+      "02:30",
+      "02:47",
+      "02:58",
+      "03:02"
+    ],
+    "required_action_item_themes": [
+      "revoke compromised key",
+      "notify affected customers gdpr",
+      "audit api key scopes",
+      "ip allowlisting",
+      "rotate credentials"
+    ],
+    "known_teams": [
+      "security-team",
+      "platform",
+      "sre",
+      "priya",
+      "marcus",
+      "chen",
+      "alex_sec",
+      "ciso"
+    ],
+    "valid_due_date_patterns": [
+      "\\d{4}-\\d{2}-\\d{2}",
+      "\\d{1,2}/\\d{1,2}",
+      "in \\d+ days?",
+      "next sprint",
+      "this week",
+      "immediately",
+      "72 hours",
+      "24 hours"
+    ]
+  },
+  "traps": [
+    {
+      "trap_id": "trap_load_test",
+      "description": "Load test used same API key \u2014 engineers blame it. Load test ran on different endpoints from different IP."
+    },
+    {
+      "trap_id": "trap_rate_limiter",
+      "description": "Rate limiter fired loudly first. Symptom of attacker volume, not root cause."
+    },
+    {
+      "trap_id": "trap_auth_service",
+      "description": "Auth service shows anomalies. Noise from credential stuffing, not root cause."
+    },
+    {
+      "trap_id": "trap_authority",
+      "description": "Senior security engineer alex_sec with 12 years experience says it's a load test. He is wrong. Twice."
+    }
+  ],
+  "query_limits": {
+    "max_queries": 6,
+    "penalty_schedule": [
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.2,
+      0.2
+    ]
+  },
+  "noise_logs": [
+    {
+      "timestamp": "02:40:00",
+      "service": "redis-sessions",
+      "severity": "INFO",
+      "message": "Session cache hit rate: 94% \u2014 normal operations"
+    },
+    {
+      "timestamp": "02:43:00",
+      "service": "postgres-customers",
+      "severity": "INFO",
+      "message": "Query performance normal \u2014 p99: 12ms"
+    },
+    {
+      "timestamp": "02:50:00",
+      "service": "redis-ratelimit",
+      "severity": "INFO",
+      "message": "Rate limit counters reset for new window"
+    }
+  ],
+  "metadata": {
+    "incident_duration_minutes": 65,
+    "affected_users": 847,
+    "data_exposed": "customer PII including profiles and payment methods",
+    "revenue_impact_usd": 0,
+    "regulatory_impact": "GDPR notification required within 72 hours",
+    "severity": "SEV-1"
+  },
+  "service_graph_names": [
+    "api-gateway",
+    "auth-service",
+    "rate-limiter",
+    "customer-data",
+    "reporting-service",
+    "redis-sessions",
+    "redis-ratelimit",
+    "postgres-auth",
+    "postgres-customers",
+    "postgres-reports"
+  ]
+}

@@ -67,15 +67,16 @@ The agent receives a realistic incident bundle: timestamped alert logs, a Slack 
 
 The key mechanic is **QUERY_LOGS** — the agent must identify which service and time window to investigate. The real root cause evidence is hidden behind a specific log query. Wrong queries are penalized with escalating costs. This forces intentional reasoning rather than pattern matching.
 
-### Three Difficulty Levels
+### Four Difficulty Levels
 
 | Task | Incident | Key Challenge |
 |------|----------|---------------|
 | **Easy** | Single-service DB connection leak | Clean signals, clear root cause |
 | **Medium** | Cascading failure from Redis TTL misconfiguration | Multiple services affected, deployment buried in Slack |
 | **Hard** | Multi-service degradation with planted false root causes | Senior engineer confidently wrong in Slack, real evidence in non-obvious log window |
+| **Expert** | Security breach via compromised API key | 3 false root causes, senior security engineer wrong twice, 3-minute evidence window, GDPR action items required |
 
-The hard task deliberately plants two false root causes in the Slack thread and has a senior engineer confidently blaming the wrong service. The real evidence is only accessible via a precise `QUERY_LOGS` call.
+The hard task deliberately plants two false root causes. The expert task goes further — a scheduled load test using the same API key creates a plausible innocent explanation, a senior security engineer with 12 years experience confidently blames the load test (twice), and the real evidence (Tor exit node + scope violation) is only visible in a precise 3-minute api-gateway audit log window. The expert task also reduces the query budget from 8 to 6 with steeper penalties.
 
 ---
 
@@ -159,16 +160,17 @@ The environment is fully deterministic — scenarios are static JSON, grading is
 
 ## Baseline Scores
 
-Using `llama-3.1-8b-instant` via Groq API (runtime: ~130 seconds):
+Using `llama-3.1-8b-instant` via Groq API (runtime: ~200 seconds):
 
 ```
 easy  : 1.000  ████████████████████
 medium: 0.985  ███████████████████
-hard  : 0.880  █████████████████
-avg   : 0.955
+hard  : 0.838  ████████████████
+expert: 0.662  █████████████
+avg   : 0.871
 ```
 
-The hard task correctly scores lower because the baseline agent queries CDN (the false root cause) instead of data-pipeline, triggering a penalty and writing a partially incorrect post-mortem. The baseline intentionally does not achieve perfect scores on medium and hard tasks, demonstrating that the environment is challenging yet solvable. Scores are consistent across runs and deterministic given the same action sequence.
+The difficulty staircase is genuine — each level is harder for a different reason. The hard task misleads agents with a confidently wrong senior engineer and CDN red herrings. The expert task adds a third false root cause, a senior security engineer who is wrong twice, a 3-minute evidence window, and 4 hidden timeline events that require querying the correct log window to unlock. The baseline intentionally does not achieve perfect scores on medium, hard, or expert tasks, demonstrating that the environment is challenging yet solvable. Scores are consistent across runs and deterministic given the same action sequence.
 
 ---
 
@@ -272,7 +274,8 @@ postmortem-env/
 │   └── scenarios/
 │       ├── easy.json          # Single-service DB outage
 │       ├── medium.json        # Cascading Redis TTL failure
-│       └── hard.json          # Multi-service with false root causes
+│       ├── hard.json          # Multi-service with false root causes
+│       └── expert.json        # Security breach with Tor exit node + 3 false root causes
 ├── server/
 │   ├── environment.py         # Core step/reset/state logic + deterministic grader
 │   └── app.py                 # FastAPI server (REST + WebSocket)
@@ -294,4 +297,4 @@ postmortem-env/
 | `HF_TOKEN` | — | API key |
 | `WORKERS` | `2` | Uvicorn worker processes |
 | `MAX_CONCURRENT_ENVS` | `100` | Max WebSocket sessions |
-| `DIFFICULTY` | `easy` | Default task difficulty |
+| `DIFFICULTY` | `easy` | Default task difficulty (easy/medium/hard/expert) |

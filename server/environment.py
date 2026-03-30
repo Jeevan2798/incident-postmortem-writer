@@ -114,9 +114,16 @@ def _validate_section(
         has_category = _any_keyword(content, [
             "null", "timeout", "leak", "config", "deploy", "migration",
             "bug", "error", "crash", "failure", "exhaustion", "misconfigur",
-            "schema", "TTL", "cache", "connection", "overflow"
+            "schema", "TTL", "cache", "connection", "overflow",
+            "compromised", "unauthorized", "breach", "stolen", "attacker",
+            "credential", "tor", "api key", "api-key", "svc-reporting"
         ])
-        return has_service and has_category
+        # For security scenarios: accept security-specific identifiers as service context
+        has_security_context = _any_keyword(content, [
+            "api-gateway", "svc-reporting-prod", "compromised key",
+            "stolen key", "185.220", "tor exit"
+        ])
+        return (has_service and has_category) or (has_security_context and has_category)
 
     elif section_name == SectionName.TIMELINE:
         # Must contain at least 3 timestamps
@@ -223,9 +230,10 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
                 if _any_keyword(timeline_text, [event["service"], event["label"].split()[0]]):
                     matched += 1
                     break
-    # Score against scoreable events only
-    scoreable = len([e for e in gold_events if e["time"] not in hidden_events or correct_queries > 0])
-    timeline_score = min(matched / max(scoreable, 1), 1.0)
+    # Score against ALL events — hidden events count in denominator
+    # Without correct query, agent can never match hidden events → lower score
+    # With correct query, hidden events become matchable → higher score
+    timeline_score = min(matched / max(len(gold_events), 1), 1.0)
 
     # ------------------------------------------------------------------
     # 3. Root cause score (30%) — 3-layer
@@ -241,9 +249,12 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
     service_variants = [gold_service]
     if "-" in gold_service:
         parts = gold_service.split("-")
-        service_variants.append(parts[0])  # e.g. "redis" from "redis-auth"
-        # Only add last part if it uniquely identifies service (not generic like "auth")
-        if parts[-1] not in ["auth", "db", "service", "api", "cache"]:
+        # Only add first part if specific enough (not generic words like api, db, web)
+        generic_words = ["api", "auth", "db", "web", "app", "data"]
+        if parts[0] not in generic_words:
+            service_variants.append(parts[0])
+        # Only add last part if unique (not generic)
+        if parts[-1] not in ["auth", "db", "service", "api", "cache", "gateway"]:
             service_variants.append(parts[-1])
     layer1 = 0.40 if _any_service(rc_text, service_variants) else 0.0
 
@@ -271,6 +282,7 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
         "resource_exhaustion": ["exhaustion", "pool", "capacity", "connections"],
         "deployment_bug":      ["deploy", "release", "version", "migration", "schema", "v2", "v14", "v15"],
         "network_failure":     ["network", "dns", "packet", "route"],
+        "security_breach":     ["breach", "compromised", "unauthorized", "exfiltration", "attacker", "tor", "stolen", "credential"],
     }
     gold_cat = rc_gold["category"]
     cat_kws = category_keywords.get(gold_cat, [])
@@ -293,6 +305,16 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
 
     # Track correct queries for timeline hidden events
     correct_queries = scenario.get("_correct_queries_made", 0)
+
+    # Evidence gate for expert difficulty: root cause requires correct query
+    # Expert scenario has specific log evidence that cannot be deduced from Slack alone
+    if scenario.get("difficulty") == "expert" and correct_queries == 0:
+        # Without querying the right window, agent is guessing from Slack
+        # Cap L1 to prevent lucky guesses from scoring full root cause
+        if layer1 > 0:
+            layer1 = 0.10  # Heavy penalty — found service name in Slack but no evidence
+        raw_rc_score = layer1 + layer2 + layer3
+        raw_rc_score = min(raw_rc_score, 0.45)  # Hard cap at 0.45
 
     # Additional penalty: if ONLY false cause mentioned (no real service at all)
     false_causes = gs.get("false_root_causes", [])
@@ -396,6 +418,7 @@ class PostMortemEnvironment(Environment):
         "easy":   "easy.json",
         "medium": "medium.json",
         "hard":   "hard.json",
+        "expert": "expert.json",
     }
 
     def __init__(self, difficulty: str = "easy"):

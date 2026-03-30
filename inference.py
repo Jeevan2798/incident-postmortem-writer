@@ -42,7 +42,7 @@ ENV_BASE_URL = os.environ.get("ENV_BASE_URL", "http://localhost:7860")
 
 TEMPERATURE  = 0.0
 MAX_TOKENS   = 1500
-DIFFICULTIES = ["easy", "medium", "hard"]
+DIFFICULTIES = ["easy", "medium", "hard", "expert"]
 SECTIONS     = ["summary", "timeline", "root_cause", "impact", "action_items"]
 
 client = OpenAI(api_key=HF_TOKEN or "dummy", base_url=API_BASE_URL)
