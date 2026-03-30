@@ -1,0 +1,51 @@
+version = 1
+requires-python = ">=3.11"
+
+[[package]]
+name = "incident-postmortem-writer"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi", version = "0.111.0" },
+    { name = "uvicorn", version = "0.29.0", extras = ["standard"] },
+    { name = "pydantic", version = "2.7.1" },
+    { name = "requests", version = "2.31.0" },
+    { name = "openai", version = "1.51.0" },
+    { name = "httpx", version = "0.27.0" },
+    { name = "python-dotenv", version = "1.0.1" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.111.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "uvicorn"
+version = "0.29.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "pydantic"
+version = "2.7.1"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "openai"
+version = "1.51.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "httpx"
+version = "0.27.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "python-dotenv"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }

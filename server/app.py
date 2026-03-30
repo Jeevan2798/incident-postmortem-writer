@@ -268,3 +268,19 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         _sessions.pop(session_id, None)
         logger.info(f"Session {session_id} cleaned up. Active: {len(_sessions)}")
+
+
+def main():
+    """Entry point for the OpenEnv server — callable via project.scripts."""
+    import os
+    import uvicorn
+    uvicorn.run(
+        "server.app:app",
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=int(os.environ.get("PORT", "7860")),
+        workers=int(os.environ.get("WORKERS", "1")),
+    )
+
+
+if __name__ == "__main__":
+    main()
