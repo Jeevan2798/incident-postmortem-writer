@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "incident-postmortem-writer"
+version = "1.0.0"
+description = "OpenEnv environment for incident post-mortem writing"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["openenv", "rl", "environment", "sre", "incident-management"]
+
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.29.0",
+    "pydantic==2.7.1",
+    "requests==2.31.0",
+    "openai==1.51.0",
+    "httpx==0.27.0",
+    "python-dotenv==1.0.1",
+]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer"
+Repository = "https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["env*", "server*", "client*"]
+
+[project.scripts]
+postmortem-server = "server.app:app"
