@@ -226,6 +226,16 @@ export HF_TOKEN=your_api_key_here
 python inference.py
 ```
 
+The inference script emits structured stdout logs in the OpenEnv-required format:
+
+```
+[START] task=easy env=incident-postmortem-writer model=llama-3.1-8b-instant
+[STEP] step=1 action=QUERY_LOGS reward=0.06 done=false error=null
+[STEP] step=2 action=WRITE_SECTION_summary reward=0.03 done=false error=null
+...
+[END] success=true steps=8 score=1.000 rewards=0.06,0.03,0.03,0.03,0.03,0.03,0.08,1.00
+```
+
 ### Use as Client
 
 ```python
