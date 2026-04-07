@@ -165,9 +165,9 @@ Using `llama-3.1-8b-instant` via Groq API (runtime: ~200 seconds):
 ```
 easy  : 1.000  ████████████████████
 medium: 0.985  ███████████████████
-hard  : 0.838  ████████████████
-expert: 0.662  █████████████
-avg   : 0.871
+hard  : 0.797  ███████████████
+expert: 0.674  █████████████
+avg   : 0.864
 ```
 
 The difficulty staircase is genuine — each level is harder for a different reason. The hard task misleads agents with a confidently wrong senior engineer and CDN red herrings. The expert task adds a third false root cause, a senior security engineer who is wrong twice, a 3-minute evidence window, and 4 hidden timeline events that require querying the correct log window to unlock. The baseline intentionally does not achieve perfect scores on medium, hard, or expert tasks, demonstrating that the environment is challenging yet solvable. Scores are consistent across runs and deterministic given the same action sequence.
