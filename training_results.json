@@ -1,0 +1,24 @@
+{
+  "method": "TRL Rejection Sampling Fine-Tuning (SFT)",
+  "student_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "teacher_model": "llama-3.1-8b-instant",
+  "training_examples": 234,
+  "reward_threshold": 0.5,
+  "before_training": {
+    "easy": 0.8,
+    "medium": 0.6158,
+    "hard": 0.4125,
+    "expert": 0.321
+  },
+  "after_training": {
+    "easy": 0.84,
+    "medium": 0.8567,
+    "hard": 0.65,
+    "expert": 0.5082
+  },
+  "before_avg": 0.537325,
+  "after_avg": 0.7137249999999999,
+  "absolute_improvement": 0.1763999999999999,
+  "relative_improvement_pct": 32.82929325827011,
+  "final_training_loss": 0.035
+}
