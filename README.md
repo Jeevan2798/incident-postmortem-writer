@@ -16,7 +16,12 @@ tags:
 
 # Incident Post-Mortem Writer
 
-An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agents learn to write structured incident post-mortems from raw alert logs, Slack threads, and service dependency graphs.
+> **OpenEnv Hackathon 2026 — Grand Finale Submission**  
+> **Theme #3.1 — World Modeling: Professional Tasks** · **Scaler AI Labs Enterprise Workflows bonus track**
+
+An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agents learn to write structured incident post-mortems from raw alert logs, Slack threads, and service dependency graphs — a multi-app enterprise workflow that simulates real Site Reliability Engineering.
+
+📄 **[Read the Round 2 blog post with training results](./BLOG.md)** — includes +32.8% reward improvement from TRL fine-tuning.
 
 ## Why This Environment
 
@@ -215,6 +220,25 @@ curl http://localhost:7860/health
 docker build -t postmortem-env .
 docker run -p 7860:7860 postmortem-env
 ```
+
+
+
+## Round 2 Training Results
+
+For the Grand Finale, we fine-tuned **Qwen 2.5-0.5B** using HuggingFace TRL's `SFTTrainer` via Rejection Sampling Fine-Tuning. Rollouts from a Llama-3.1-8B teacher were collected across all 4 difficulties, filtered by reward ≥ 0.50 (234 high-quality trajectories), and the student model trained for 5 epochs on a Colab T4 GPU.
+
+**Results — student reward improvement (before vs after training):**
+
+| Difficulty | Before | After | Change |
+|:----------:|:------:|:-----:|:------:|
+| Easy       | 0.800  | 0.840 | +0.040 |
+| Medium     | 0.616  | 0.857 | **+0.241** |
+| Hard       | 0.412  | 0.650 | **+0.238** |
+| Expert     | 0.321  | 0.508 | **+0.187** |
+| **Average**| **0.537** | **0.714** | **+0.176** |
+
+Training loss descended cleanly from **3.09 → 0.035** over 290 steps. Full write-up and charts in [`BLOG.md`](./BLOG.md). Reproducibility artifacts: [`training_results.json`](./training_results.json), [`reward_improvement.png`](./reward_improvement.png), [`training_loss_curve.png`](./training_loss_curve.png).
+
 
 ### Run Baseline Inference
 
