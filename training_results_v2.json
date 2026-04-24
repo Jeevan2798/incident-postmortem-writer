@@ -1,0 +1,26 @@
+{
+  "method": "TRL SFT V2 \u2014 Multi-Agent Enabled",
+  "student_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "teacher_model": "llama-3.1-8b-instant",
+  "training_examples": 257,
+  "multi_agent_episodes": 17,
+  "single_agent_episodes": 23,
+  "reward_threshold": 0.5,
+  "before_training": {
+    "easy": 0.78,
+    "medium": 0.9433,
+    "hard": 0.5983,
+    "expert": 0.4942
+  },
+  "after_training": {
+    "easy": 1.0,
+    "medium": 0.6567,
+    "hard": 0.665,
+    "expert": 0.5488
+  },
+  "before_avg": 0.704,
+  "after_avg": 0.7176,
+  "absolute_improvement": 0.0137,
+  "relative_improvement_pct": 1.94,
+  "final_training_loss": 0.0047
+}
