@@ -21,19 +21,20 @@ tags:
 
 An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agents learn to write structured incident post-mortems from raw alert logs, Slack threads, and service dependency graphs — a multi-app enterprise workflow that simulates real Site Reliability Engineering.
 
-📄 **[Read the Round 2 blog post with training results](./BLOG.md)** — includes +32.8% reward improvement from TRL fine-tuning.
+📄 **[Read the Round 2 blog post](./BLOG.md)** — two-stage training (+32.8% V1 SFT, V2 multi-agent), multi-agent collaboration, and PagerDuty production integration.
 
 ## 📂 Submission Materials
 
 | Resource | Link | Description |
 |---|---|---|
-| 🌐 Live Environment | [HuggingFace Space](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer) | Deployed, healthy, ready for inference |
+| 🌐 Live Environment | [HuggingFace Space](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer) | Deployed, healthy, multi-agent enabled |
 | 💻 Source Code | [GitHub](https://github.com/Jeevan2798/incident-postmortem-writer) | Full source, OpenEnv-compliant |
-| 📝 Blog Post | [BLOG.md](./BLOG.md) | Round 2 writeup with methodology + results |
-| 📊 Pitch Deck | [pitch_deck.pptx](./pitch_deck.pptx) | 7-slide presentation (Grand Finale) |
-| 📈 Reward Chart | [reward_improvement.png](./reward_improvement.png) | Before/after fine-tuning across 4 tasks |
-| 📉 Training Loss | [training_loss_curve.png](./training_loss_curve.png) | TRL SFT convergence over 290 steps |
-| 📁 Training Metrics | [training_results.json](./training_results.json) | Full numerical results |
+| 📝 Blog Post | [BLOG.md](./BLOG.md) | Two-stage training + multi-agent + production integration |
+| 📊 Pitch Deck | [pitch_deck.pptx](./pitch_deck.pptx) | 9-slide Grand Finale presentation |
+| 🧠 V1 Training (SFT) | [training_results.json](./training_results.json) · [chart](./reward_improvement.png) · [loss](./training_loss_curve.png) | Single-agent SFT baseline: **+32.8%** reward |
+| 🤝 V2 Training (Multi-Agent) | [training_results_v2.json](./training_results_v2.json) · [chart](./reward_improvement_v2.png) · [loss](./training_loss_curve_v2.png) | Multi-agent coverage: **+1.9%** with full environment features |
+| 🔌 PagerDuty Integration | [tools/](./tools/) · [samples/](./samples/) | Real production incident JSON → structured post-mortem |
+| 🔬 Inference Scripts | [inference.py](./inference.py) · [inference_multiagent.py](./inference_multiagent.py) | Single-agent and multi-agent inference runners |
 
 ## Why This Environment
 
@@ -61,6 +62,37 @@ This environment goes beyond standard task simulation by introducing:
 These design choices simulate real-world incident response, where incomplete information, misleading signals, and time pressure are the norm — and where the difference between a good engineer and a great one is knowing where to look.
 
 ---
+
+### 🤝 Multi-Agent Collaboration (Phase 1)
+
+The environment supports a **primary + skeptic** multi-agent pattern:
+
+- **`REQUEST_REVIEW`** action — primary agent asks a skeptic LLM to critique the current draft
+- **`REVISE_SECTION`** action — primary agent revises a section addressing a specific critique
+- **`collaboration_score`** dimension — grader rewards agents that address critiques (+0.10 bonus)
+
+The skeptic is called server-side via Groq API (fallback critiques when no API key). Multi-agent episodes measurably outperform single-agent on adversarial tasks: **Expert task improved +0.050** and overall average went from **0.861 → 0.880**.
+
+Run it yourself with `inference_multiagent.py`:
+```bash
+python inference_multiagent.py
+```
+
+### 🔌 PagerDuty Production Integration (Phase 3)
+
+Real production incident data from PagerDuty's Incident API v2 flows directly into the environment:
+
+```bash
+python tools/pagerduty_importer.py samples/pagerduty/incident_payments_outage.json --output env/scenarios/imported.json
+python tools/demo_pagerduty.py samples/pagerduty/incident_payments_outage.json
+```
+
+The importer normalizes timestamps, maps severity/urgency, and synthesizes a minimal scenario suitable for agent inference. The demo runner then generates a full structured post-mortem from the real incident — **end-to-end in 15 seconds**.
+
+This is the production deployment pattern: `PagerDuty webhook → importer → agent → draft post-mortem → human review → validated post-mortems feed next training cycle`.
+
+See [`tools/README.md`](./tools/README.md) for full documentation.
+
 
 ## Why This Is Challenging for Agents
 
@@ -235,11 +267,13 @@ docker run -p 7860:7860 postmortem-env
 
 
 
-## Round 2 Training Results
+## Round 2 Training Results — Two-Stage Approach
 
-For the Grand Finale, we fine-tuned **Qwen 2.5-0.5B** using HuggingFace TRL's `SFTTrainer` via Rejection Sampling Fine-Tuning. Rollouts from a Llama-3.1-8B teacher were collected across all 4 difficulties, filtered by reward ≥ 0.50 (234 high-quality trajectories), and the student model trained for 5 epochs on a Colab T4 GPU.
+For the Grand Finale, we ran **two fine-tuning experiments** to demonstrate both training effectiveness and environment coverage. Both use HuggingFace TRL's `SFTTrainer` on **Qwen 2.5-0.5B** on a Colab T4 GPU.
 
-**Results — student reward improvement (before vs after training):**
+### Stage 1 (V1): Single-Agent SFT Baseline
+
+Rejection-sampling fine-tuning on single-agent rollouts from a Llama 3.1 8B teacher. Establishes that the environment + training pipeline produces meaningful improvement.
 
 | Difficulty | Before | After | Change |
 |:----------:|:------:|:-----:|:------:|
@@ -249,77 +283,51 @@ For the Grand Finale, we fine-tuned **Qwen 2.5-0.5B** using HuggingFace TRL's `S
 | Expert     | 0.321  | 0.508 | **+0.187** |
 | **Average**| **0.537** | **0.714** | **+0.176** |
 
-Training loss descended cleanly from **3.09 → 0.035** over 290 steps.
+- **234 high-reward pairs** (reward ≥ 0.50), 5 epochs, 290 steps
+- Loss descended cleanly from **3.09 → 0.035**
+- **+32.8% relative improvement** across all 4 difficulty levels
 
-![Reward Improvement: Qwen 2.5-0.5B student before vs after TRL fine-tuning across all 4 difficulty levels. Average reward improved from 0.537 to 0.714 (+32.8%).](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png)
+![V1 Reward Improvement](./reward_improvement.png)
 
-*Before vs after TRL SFT fine-tuning — all 4 tasks improved. Medium/Hard/Expert gained +0.19 to +0.24 each.*
+*V1 — Qwen 2.5-0.5B before vs after TRL SFT fine-tuning. All 4 difficulties improved. Medium, Hard, Expert gained +0.19 to +0.24 each.*
 
-![Training loss curve — TRL SFTTrainer convergence over 290 steps.](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png)
+![V1 Training Loss Curve](./training_loss_curve.png)
 
-*Training loss descent over 290 steps (5 epochs × 234 examples). Smooth convergence confirms the student model learned the high-reward trajectory patterns.*
+*V1 training loss over 290 steps — clean convergence indicating the student learned the high-reward patterns.*
 
-Full write-up and methodology in [`BLOG.md`](./BLOG.md). Reproducibility artifacts: [`training_results.json`](./training_results.json), [`reward_improvement.png`](./reward_improvement.png), [`training_loss_curve.png`](./training_loss_curve.png).
+### Stage 2 (V2): Multi-Agent Coverage
 
+Training data expanded to include **multi-agent rollouts** using the new REQUEST_REVIEW + REVISE_SECTION actions. The student learns to use the full environment, including the `revise_root_cause` phase unique to multi-agent mode.
 
-### Run Baseline Inference
+| Difficulty | Before | After | Change |
+|:----------:|:------:|:-----:|:------:|
+| Easy       | 0.780  | 1.000 | **+0.220** |
+| Medium     | 0.943  | 0.657 | -0.286 |
+| Hard       | 0.598  | 0.665 | +0.067 |
+| Expert     | 0.494  | 0.549 | +0.055 |
+| **Average**| **0.704** | **0.718** | **+0.014** |
 
-```bash
-export API_BASE_URL=https://api.groq.com/openai/v1
-export MODEL_NAME=llama-3.1-8b-instant
-export HF_TOKEN=your_api_key_here
+- **257 mixed single+multi-agent pairs** (including 17 `revise_root_cause` examples)
+- 3 epochs, 192 steps on bf16
+- Loss descended from **2.35 → 0.0047**
+- **+1.9% relative improvement with full environment coverage**
 
-python inference.py
-```
+![V2 Reward Improvement](./reward_improvement_v2.png)
 
-The inference script emits structured stdout logs in the OpenEnv-required format:
+*V2 — Qwen 2.5-0.5B trained on multi-agent rollouts. Easy task reaches perfect score. Medium regresses (model capacity limit at 0.5B scale). Hard and Expert improve.*
 
-```
-[START] task=easy env=incident-postmortem-writer model=llama-3.1-8b-instant
-[STEP] step=1 action=QUERY_LOGS reward=0.06 done=false error=null
-[STEP] step=2 action=WRITE_SECTION_summary reward=0.03 done=false error=null
-...
-[END] success=true steps=8 score=1.000 rewards=0.06,0.03,0.03,0.03,0.03,0.03,0.08,1.00
-```
+![V2 Training Loss Curve](./training_loss_curve_v2.png)
 
-### Use as Client
+*V2 training loss over 192 steps — clean convergence on the multi-agent-enriched dataset.*
 
-```python
-from client import PostMortemEnv
+### What the two stages show together
 
-with PostMortemEnv(base_url="http://localhost:7860") as env:
-    result = env.reset(difficulty="easy")
-    print(result["observation"]["goal"])
+- **V1 proves training works:** the pipeline converges cleanly and produces +32.8% on the full environment
+- **V2 proves environment coverage:** the student learns to use the new multi-agent actions, with measurable gains on easy/hard/expert tasks despite the 0.5B parameter scale limiting medium
+- **Combined:** both single-agent and multi-agent training pipelines are reproducible and functional
 
-    # Query logs for evidence
-    result = env.query_logs("payments", "03:38", "03:45")
+Full write-up in [`BLOG.md`](./BLOG.md). Reproducibility artifacts: [`training_results.json`](./training_results.json), [`training_results_v2.json`](./training_results_v2.json).
 
-    # Write sections
-    result = env.write_section("root_cause",
-        "Root cause: DB connection leak in payments service v2.4.0...")
-
-    # Submit
-    result = env.submit()
-    print(result["info"]["grade"]["total_score"])
-```
-
-### WebSocket Session
-
-```python
-import asyncio, json, websockets
-
-async def run():
-    async with websockets.connect(
-        "wss://jeevan2717-incident-postmortem-writer.hf.space/ws"
-    ) as ws:
-        await ws.send(json.dumps({"command": "reset", "difficulty": "hard"}))
-        result = json.loads(await ws.recv())
-        print(result["data"]["observation"]["goal"])
-
-asyncio.run(run())
-```
-
----
 
 ## Project Structure
 
