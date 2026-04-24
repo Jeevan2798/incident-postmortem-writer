@@ -1,0 +1,75 @@
+{
+  "incident": {
+    "id": "PD67890FGHIJ",
+    "incident_number": 12678,
+    "title": "Auth service elevated error rate post Redis config change",
+    "created_at": "2025-11-03T13:58:00Z",
+    "status": "triggered",
+    "urgency": "high",
+    "service": {
+      "id": "P9XYZ456",
+      "summary": "auth",
+      "name": "auth"
+    },
+    "log_entries": [
+      {
+        "id": "L101",
+        "type": "trigger_log_entry",
+        "created_at": "2025-11-03T13:58:20Z",
+        "severity": "error",
+        "summary": "Token validation 500 errors spiking",
+        "description": "auth: POST /validate_token returning 500 at 40% error rate"
+      },
+      {
+        "id": "L102",
+        "type": "alert_log_entry",
+        "created_at": "2025-11-03T14:02:15Z",
+        "severity": "critical",
+        "summary": "Checkout service failing dependent auth calls",
+        "description": "checkout.v2 experiencing cascading failures from auth-service dependency"
+      },
+      {
+        "id": "L103",
+        "type": "alert_log_entry",
+        "created_at": "2025-11-03T14:05:44Z",
+        "severity": "warning",
+        "summary": "redis-auth cache hit rate collapsed — now 5% (baseline 98%)",
+        "description": "Cache miss explosion on redis-auth, all traffic hitting origin"
+      }
+    ],
+    "notes": [
+      {
+        "id": "N101",
+        "created_at": "2025-11-03T14:00:00Z",
+        "user": {
+          "id": "U200",
+          "summary": "mei.zhang"
+        },
+        "content": "FYI team — I deployed redis-auth TTL change (5s → 500ms) at 13:55. Testing if this is related."
+      },
+      {
+        "id": "N102",
+        "created_at": "2025-11-03T14:03:00Z",
+        "user": {
+          "id": "U201",
+          "summary": "sara.chen"
+        },
+        "content": "@mei.zhang 500ms TTL on auth tokens seems way too short — tokens expire mid-request → re-auth → cache miss → DB hit → auth 500s → checkout cascade. Is that what you were testing for?"
+      },
+      {
+        "id": "N103",
+        "created_at": "2025-11-03T14:07:00Z",
+        "user": {
+          "id": "U200",
+          "summary": "mei.zhang"
+        },
+        "content": "You're right. Reverting TTL to 5s now. Should've canary'd this in staging with realistic load."
+      }
+    ],
+    "priority": {
+      "id": "P1",
+      "summary": "P1"
+    },
+    "resolved_at": "2025-11-03T14:18:00Z"
+  }
+}

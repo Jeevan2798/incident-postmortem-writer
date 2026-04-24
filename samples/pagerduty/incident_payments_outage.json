@@ -1,0 +1,93 @@
+{
+  "incident": {
+    "id": "PD12345ABCDE",
+    "incident_number": 12345,
+    "title": "Payments API 5xx spike — checkout failures",
+    "created_at": "2025-10-14T03:41:00Z",
+    "status": "triggered",
+    "urgency": "high",
+    "service": {
+      "id": "P9ABC123",
+      "summary": "payments-api",
+      "name": "payments-api"
+    },
+    "log_entries": [
+      {
+        "id": "L001",
+        "type": "trigger_log_entry",
+        "created_at": "2025-10-14T03:41:05Z",
+        "severity": "critical",
+        "summary": "HTTP 500 error rate exceeded 5% threshold for payments-api",
+        "description": "payments-api returning 5xx on POST /charge"
+      },
+      {
+        "id": "L002",
+        "type": "alert_log_entry",
+        "created_at": "2025-10-14T03:43:12Z",
+        "severity": "critical",
+        "summary": "Database connection pool exhausted",
+        "description": "payments-api postgres connection pool at 100/100, requests queuing"
+      },
+      {
+        "id": "L003",
+        "type": "alert_log_entry",
+        "created_at": "2025-10-14T03:46:30Z",
+        "severity": "warning",
+        "summary": "Checkout conversion rate dropped 62%",
+        "description": "Downstream impact: /api/checkout/complete failing"
+      },
+      {
+        "id": "L004",
+        "type": "alert_log_entry",
+        "created_at": "2025-10-14T03:52:00Z",
+        "severity": "error",
+        "summary": "Request timeouts climbing — p99 latency now 28s",
+        "description": "payments-api p99 latency degraded from baseline 180ms"
+      }
+    ],
+    "notes": [
+      {
+        "id": "N001",
+        "created_at": "2025-10-14T03:42:00Z",
+        "user": {
+          "id": "U100",
+          "summary": "sara.chen"
+        },
+        "content": "On-call picking this up. Saw v2.4.0 deploy from james at 03:38, timing is suspicious."
+      },
+      {
+        "id": "N002",
+        "created_at": "2025-10-14T03:45:00Z",
+        "user": {
+          "id": "U101",
+          "summary": "tom.martinez"
+        },
+        "content": "Looking at postgres-payments metrics — connection count is plateaued at pool_max, no ramp-down. Classic leak signature."
+      },
+      {
+        "id": "N003",
+        "created_at": "2025-10-14T03:48:00Z",
+        "user": {
+          "id": "U100",
+          "summary": "sara.chen"
+        },
+        "content": "Reverting v2.4.0 → v2.3.8. Will verify connections drain post-rollback."
+      },
+      {
+        "id": "N004",
+        "created_at": "2025-10-14T04:05:00Z",
+        "user": {
+          "id": "U102",
+          "summary": "mei.zhang"
+        },
+        "content": "Rollback complete. Connections draining. Error rate back to baseline. Recovery confirmed. Will file post-mortem."
+      }
+    ],
+    "priority": {
+      "id": "P1",
+      "summary": "P1"
+    },
+    "resolved_at": "2025-10-14T04:09:00Z",
+    "html_url": "https://example.pagerduty.com/incidents/PD12345ABCDE"
+  }
+}
