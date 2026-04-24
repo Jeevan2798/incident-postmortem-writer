@@ -15,10 +15,13 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 class ActionType(str, Enum):
-    WRITE_SECTION    = "WRITE_SECTION"
-    QUERY_LOGS       = "QUERY_LOGS"
+    WRITE_SECTION      = "WRITE_SECTION"
+    QUERY_LOGS         = "QUERY_LOGS"
     ASSIGN_ACTION_ITEM = "ASSIGN_ACTION_ITEM"
-    SUBMIT           = "SUBMIT"
+    SUBMIT             = "SUBMIT"
+    # Multi-agent extension — Phase 1
+    REQUEST_REVIEW     = "REQUEST_REVIEW"
+    REVISE_SECTION     = "REVISE_SECTION"
 
 
 class SectionName(str, Enum):
@@ -136,6 +139,20 @@ class Observation(BaseModel):
         description="Log lines returned by the last QUERY_LOGS call. None if no query made yet."
     )
 
+    # Multi-agent extension — Skeptic critiques (populated after REQUEST_REVIEW)
+    skeptic_critiques: List[str] = Field(
+        default_factory=list,
+        description="Critiques from the skeptic agent on current post-mortem draft. Addressing these via REVISE_SECTION earns reward."
+    )
+    critiques_addressed: int = Field(
+        default=0,
+        description="Count of skeptic critiques the agent has addressed via REVISE_SECTION."
+    )
+    reviews_requested: int = Field(
+        default=0,
+        description="Total REQUEST_REVIEW calls made this episode (soft-capped at 3)."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Action — what the agent can do
@@ -172,6 +189,13 @@ class Action(BaseModel):
     action_item_owner: Optional[str] = None
     action_item_due_date: Optional[str] = None
 
+    # For REVISE_SECTION (multi-agent extension)
+    # Reuses section_name + section_content from WRITE_SECTION fields above.
+    critique_addressed_index: Optional[int] = Field(
+        default=None,
+        description="Index into skeptic_critiques list that this revision addresses (0-based)."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Reward — returned alongside observation after each step
@@ -179,13 +203,17 @@ class Action(BaseModel):
 
 class RewardBreakdown(BaseModel):
     """Detailed breakdown so the agent (and judges) can see exactly why."""
-    section_written:       float = 0.0
-    correct_query:         float = 0.0
-    action_item_assigned:  float = 0.0
-    overwrite_penalty:     float = 0.0
-    bad_query_penalty:     float = 0.0
+    section_written:         float = 0.0
+    correct_query:           float = 0.0
+    action_item_assigned:    float = 0.0
+    overwrite_penalty:       float = 0.0
+    bad_query_penalty:       float = 0.0
     missing_section_penalty: float = 0.0
-    no_submit_penalty:     float = 0.0
+    no_submit_penalty:       float = 0.0
+    # Multi-agent extension — Phase 1
+    review_requested:        float = 0.0  # +0.04 for valid REQUEST_REVIEW
+    critique_addressed:      float = 0.0  # +0.06 for REVISE_SECTION that addresses a critique
+    spurious_revision:       float = 0.0  # -0.03 for REVISE_SECTION without an outstanding critique
 
 
 class Reward(BaseModel):
@@ -213,14 +241,18 @@ class GradeResult(BaseModel):
     total_score: float = Field(..., ge=0.0, le=1.0)
 
     # Sub-scores (all 0.0–1.0)
-    root_cause_score:  float = 0.0
-    timeline_score:    float = 0.0
-    action_items_score: float = 0.0
-    impact_score:      float = 0.0
-    completeness_score: float = 0.0
+    root_cause_score:     float = 0.0
+    timeline_score:       float = 0.0
+    action_items_score:   float = 0.0
+    impact_score:         float = 0.0
+    completeness_score:   float = 0.0
+    # Multi-agent extension — Phase 1
+    collaboration_score:  float = 0.0  # 0.0 if no critiques addressed; 1.0 if all addressed
 
     # Modifiers
     timeline_root_cause_cap_applied: bool = False
     correct_queries_made: int = 0
+    critiques_received:   int = 0
+    critiques_addressed:  int = 0
 
     explanation: str = ""

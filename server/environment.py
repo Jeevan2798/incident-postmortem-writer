@@ -37,6 +37,105 @@ from env.models import (
 SCENARIOS_DIR = Path(__file__).parent.parent / "env" / "scenarios"
 
 # ---------------------------------------------------------------------------
+# Skeptic Agent — External LLM call for multi-agent review
+# ---------------------------------------------------------------------------
+
+import os
+import urllib.request
+import urllib.error
+
+# Generic fallback critiques used when LLM is unavailable or returns garbage.
+# Keeps the environment functional without API access.
+_FALLBACK_CRITIQUES = [
+    "Verify the service you named as root cause actually appears in the retrieved log evidence, not just in Slack opinions.",
+    "Cross-check your timeline against the alert timestamps — are you missing events that happened before the first loud symptom?",
+    "Your root cause should name the specific mechanism (e.g. deployment bug, config error, compromised credential) — not just the symptom.",
+    "Consider whether any Slack messages are confidently wrong — authority figures can be mistaken.",
+    "Your action items should be specific to the root cause, not generic monitoring improvements.",
+]
+
+_SKEPTIC_SYSTEM_PROMPT = """You are a senior SRE reviewing an incident post-mortem draft written by another engineer.
+Your job is to identify SPECIFIC factual or reasoning problems in the draft.
+
+Rules:
+- Return ONE critique only, in 1-2 sentences.
+- Be concrete: point to a specific claim, timestamp, or missing evidence.
+- Do NOT rewrite the post-mortem. Only critique it.
+- Do NOT acknowledge the draft is good. You are looking for issues.
+- If the draft is genuinely clean, point out the weakest remaining claim anyway.
+"""
+
+
+def _call_skeptic_llm(current_sections: Dict[str, str], incident_title: str, alerts: List[Dict[str, Any]]) -> str:
+    """Call an OpenAI-compatible LLM to generate a critique of current draft.
+
+    Returns a single critique string (1-2 sentences).
+    Falls back to a generic critique on any error — never raises.
+
+    Configuration via env vars:
+      SKEPTIC_API_BASE_URL  (default: https://api.groq.com/openai/v1)
+      SKEPTIC_MODEL_NAME    (default: llama-3.1-8b-instant)
+      SKEPTIC_API_KEY       (if unset, uses generic fallback)
+    """
+    api_key = os.environ.get("SKEPTIC_API_KEY") or os.environ.get("HF_TOKEN") or ""
+
+    # No API key → return a varied generic fallback so agent still sees meaningful feedback
+    if not api_key:
+        # Pick a fallback based on how many sections have content (so repeat calls differ)
+        written_count = sum(1 for v in current_sections.values() if v and v.strip())
+        return _FALLBACK_CRITIQUES[written_count % len(_FALLBACK_CRITIQUES)]
+
+    base_url = os.environ.get("SKEPTIC_API_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+    model    = os.environ.get("SKEPTIC_MODEL_NAME", "llama-3.1-8b-instant")
+
+    # Build compact prompt — keep under 2000 tokens to avoid rate limit
+    draft = "\n".join(
+        f"## {k.upper()}\n{v[:400] if v else '(not yet written)'}"
+        for k, v in current_sections.items()
+    )
+    alerts_brief = "\n".join(
+        f"[{a.get('timestamp','')}] {a.get('service','')}: {a.get('message','')[:100]}"
+        for a in alerts[:8]
+    )
+    user_prompt = (
+        f"INCIDENT: {incident_title}\n\n"
+        f"RECENT ALERTS:\n{alerts_brief}\n\n"
+        f"DRAFT POST-MORTEM:\n{draft}\n\n"
+        "Provide ONE specific critique in 1-2 sentences."
+    )
+
+    body = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": _SKEPTIC_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_prompt},
+        ],
+        "temperature": 0.0,   # try to minimize non-determinism
+        "max_tokens": 150,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        text = (data.get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+        if text and len(text) >= 20:
+            return text
+        # Garbage response → fallback
+        return _FALLBACK_CRITIQUES[0]
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, KeyError, TimeoutError, Exception):
+        return _FALLBACK_CRITIQUES[0]
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -374,23 +473,60 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
     ai_score = min(ai_score, 1.0)
 
     # ------------------------------------------------------------------
+    # Multi-agent extension — collaboration score
+    # ------------------------------------------------------------------
+    critiques_received  = scenario.get("_critiques_received", 0)
+    critiques_addressed = scenario.get("_critiques_addressed", 0)
+    if critiques_received > 0:
+        # Ratio of critiques addressed, capped at 1.0
+        collaboration_score = min(critiques_addressed / critiques_received, 1.0)
+    else:
+        # No critiques requested → neutral (doesn't help or hurt)
+        # We pass neutral 0.0 here but the weighting below reallocates its weight
+        # to other components so single-agent episodes aren't penalized.
+        collaboration_score = 0.0
+
+    # ------------------------------------------------------------------
     # Weighted total
     # ------------------------------------------------------------------
-    total = (
-        raw_rc_score  * 0.30 +
-        timeline_score * 0.25 +
-        ai_score       * 0.20 +
-        impact_score   * 0.15 +
-        completeness   * 0.10
-    )
+    # If no critiques were requested (single-agent mode), use original weights.
+    # If critiques WERE requested (multi-agent mode), add collaboration_score
+    # as a bonus that can push the total up by up to +0.10 (capped at 1.0).
+    if critiques_received > 0:
+        # Multi-agent mode: collaboration_score contributes up to 10% bonus
+        total = (
+            raw_rc_score   * 0.30 +
+            timeline_score * 0.25 +
+            ai_score       * 0.20 +
+            impact_score   * 0.15 +
+            completeness   * 0.10
+        ) + (collaboration_score * 0.10)   # bonus on top
+    else:
+        # Single-agent mode: unchanged from before
+        total = (
+            raw_rc_score   * 0.30 +
+            timeline_score * 0.25 +
+            ai_score       * 0.20 +
+            impact_score   * 0.15 +
+            completeness   * 0.10
+        )
     total = round(min(max(total, 0.0), 1.0), 4)
 
-    explanation = (
-        f"root_cause={raw_rc_score:.2f}(L1={layer1:.2f},L2={layer2:.2f},L3={layer3:.2f}) "
-        f"timeline={timeline_score:.2f}({matched}/{len(gold_events)} events) "
-        f"action_items={ai_score:.2f} impact={impact_score:.2f} "
-        f"completeness={completeness:.2f}"
-    )
+    if critiques_received > 0:
+        explanation = (
+            f"root_cause={raw_rc_score:.2f}(L1={layer1:.2f},L2={layer2:.2f},L3={layer3:.2f}) "
+            f"timeline={timeline_score:.2f}({matched}/{len(gold_events)} events) "
+            f"action_items={ai_score:.2f} impact={impact_score:.2f} "
+            f"completeness={completeness:.2f} "
+            f"collaboration={collaboration_score:.2f}({critiques_addressed}/{critiques_received} critiques)"
+        )
+    else:
+        explanation = (
+            f"root_cause={raw_rc_score:.2f}(L1={layer1:.2f},L2={layer2:.2f},L3={layer3:.2f}) "
+            f"timeline={timeline_score:.2f}({matched}/{len(gold_events)} events) "
+            f"action_items={ai_score:.2f} impact={impact_score:.2f} "
+            f"completeness={completeness:.2f}"
+        )
 
     return GradeResult(
         total_score=total,
@@ -399,7 +535,10 @@ def _grade_submission(sections: Dict[str, str], scenario: dict) -> GradeResult:
         action_items_score=ai_score,
         impact_score=impact_score,
         completeness_score=completeness,
+        collaboration_score=collaboration_score,
         timeline_root_cause_cap_applied=timeline_cap_applied,
+        critiques_received=critiques_received,
+        critiques_addressed=critiques_addressed,
         explanation=explanation,
     )
 
@@ -461,6 +600,11 @@ class PostMortemEnvironment(Environment):
         self._step_count = 0
         self._done = False
         self._grade_result = None
+        # Multi-agent extension — Phase 1
+        self._skeptic_critiques: List[str] = []
+        self._critiques_addressed_indices: set = set()   # which critique indices were addressed
+        self._reviews_requested = 0
+        self._max_reviews = 3   # soft cap on REQUEST_REVIEW calls
 
         obs = self._build_observation(
             last_action_result="Episode started. Read the alerts and Slack thread carefully. Use QUERY_LOGS to find hidden evidence before writing sections.",
@@ -510,6 +654,13 @@ class PostMortemEnvironment(Environment):
         elif action.action_type == ActionType.SUBMIT:
             result_msg, breakdown = self._handle_submit(breakdown)
 
+        # Multi-agent extension — Phase 1
+        elif action.action_type == ActionType.REQUEST_REVIEW:
+            result_msg, breakdown = self._handle_request_review(breakdown)
+
+        elif action.action_type == ActionType.REVISE_SECTION:
+            result_msg, breakdown = self._handle_revise_section(action, breakdown)
+
         else:
             result_msg = f"Unknown action type: {action.action_type}"
 
@@ -534,6 +685,10 @@ class PostMortemEnvironment(Environment):
             + (breakdown.bad_query_penalty   or 0.0)
             + (breakdown.missing_section_penalty or 0.0)
             + (breakdown.no_submit_penalty   or 0.0)
+            # Multi-agent extension
+            + (breakdown.review_requested    or 0.0)
+            + (breakdown.critique_addressed  or 0.0)
+            + (breakdown.spurious_revision   or 0.0)
         )
         step_reward = float(step_reward) if step_reward is not None else 0.0
         self._cumulative_reward = round(self._cumulative_reward + step_reward, 4)
@@ -714,6 +869,134 @@ class PostMortemEnvironment(Environment):
             if not has_due:    missing.append("due date (e.g. '2024-08-01' or 'next sprint')")
             return f"Action item incomplete. Missing: {', '.join(missing)}. No reward.", breakdown
 
+    # ------------------------------------------------------------------
+    # Multi-agent extension — REQUEST_REVIEW handler
+    # ------------------------------------------------------------------
+
+    def _handle_request_review(self, breakdown: RewardBreakdown) -> tuple[str, RewardBreakdown]:
+        """Agent asks skeptic to critique current draft. Calls external LLM."""
+        # Soft cap on review requests to prevent spam
+        if self._reviews_requested >= self._max_reviews:
+            return (
+                f"REQUEST_REVIEW denied — already at max ({self._max_reviews}) reviews this episode. "
+                f"Address existing critiques via REVISE_SECTION instead.",
+                breakdown,
+            )
+
+        # Must have at least 2 sections written before review makes sense
+        written_count = sum(
+            1 for k, state in self._section_states.items()
+            if state == SectionState.WRITTEN_VALID
+        )
+        if written_count < 2:
+            return (
+                f"REQUEST_REVIEW too early — only {written_count} section(s) written. "
+                f"Write at least 2 sections first (e.g. root_cause + timeline).",
+                breakdown,
+            )
+
+        # Call skeptic
+        critique = _call_skeptic_llm(
+            current_sections=self._written_sections,
+            incident_title=self._scenario.get("incident_title", ""),
+            alerts=self._scenario.get("initial_alerts", []),
+        )
+
+        self._skeptic_critiques.append(critique)
+        self._reviews_requested += 1
+        breakdown.review_requested = 0.04
+
+        preview = critique[:140] + ("..." if len(critique) > 140 else "")
+        return (
+            f"Skeptic critique #{len(self._skeptic_critiques)} received (+0.04): {preview}",
+            breakdown,
+        )
+
+    # ------------------------------------------------------------------
+    # Multi-agent extension — REVISE_SECTION handler
+    # ------------------------------------------------------------------
+
+    def _handle_revise_section(self, action: Action, breakdown: RewardBreakdown) -> tuple[str, RewardBreakdown]:
+        """Agent revises a section in response to a skeptic critique."""
+        # Must have received at least one critique
+        outstanding = [
+            i for i in range(len(self._skeptic_critiques))
+            if i not in self._critiques_addressed_indices
+        ]
+        if not self._skeptic_critiques:
+            breakdown.spurious_revision = -0.03
+            return (
+                "REVISE_SECTION called with no critiques received (-0.03). "
+                "Use REQUEST_REVIEW first, then address the critique here.",
+                breakdown,
+            )
+        if not outstanding:
+            breakdown.spurious_revision = -0.03
+            return (
+                "REVISE_SECTION called but all critiques already addressed (-0.03). "
+                "Use REQUEST_REVIEW for a fresh critique, or SUBMIT.",
+                breakdown,
+            )
+
+        # Validate section inputs
+        if not action.section_name or not action.section_content:
+            return (
+                "REVISE_SECTION requires both section_name and section_content. No reward.",
+                breakdown,
+            )
+        section_key = action.section_name.value
+        if self._section_states.get(section_key) != SectionState.WRITTEN_VALID:
+            return (
+                f"Cannot revise '{section_key}' — section not yet written and validated. "
+                f"Use WRITE_SECTION first.",
+                breakdown,
+            )
+
+        # Determine which critique is being addressed
+        idx = action.critique_addressed_index
+        if idx is None:
+            idx = outstanding[0]  # default: first outstanding
+        if idx < 0 or idx >= len(self._skeptic_critiques):
+            breakdown.spurious_revision = -0.03
+            return (
+                f"critique_addressed_index={idx} out of range (-0.03). "
+                f"Valid range: 0..{len(self._skeptic_critiques)-1}.",
+                breakdown,
+            )
+        if idx in self._critiques_addressed_indices:
+            breakdown.spurious_revision = -0.03
+            return (
+                f"Critique #{idx} already addressed (-0.03). Outstanding critiques: {outstanding}.",
+                breakdown,
+            )
+
+        # Check the revision actually changed the section meaningfully
+        old_content = self._written_sections.get(section_key, "")
+        new_content = (action.section_content or "").strip()
+        if not new_content:
+            return (
+                "REVISE_SECTION section_content is empty. No change made.",
+                breakdown,
+            )
+        # Require at least 30 chars difference to count as substantive revision
+        # (prevents tiny tweaks farming reward)
+        if len(new_content) < 30 or new_content == old_content:
+            return (
+                "Revision too small or identical to prior content. No reward.",
+                breakdown,
+            )
+
+        # Accept the revision
+        self._written_sections[section_key] = new_content[:2000]
+        self._critiques_addressed_indices.add(idx)
+        breakdown.critique_addressed = 0.06
+
+        return (
+            f"Critique #{idx} addressed via {section_key} revision (+0.06). "
+            f"{len(self._critiques_addressed_indices)}/{len(self._skeptic_critiques)} critiques resolved.",
+            breakdown,
+        )
+
     def _handle_submit(self, breakdown: RewardBreakdown) -> tuple[str, RewardBreakdown]:
         """Run final grader on submitted sections."""
         # Penalty for any missing sections
@@ -740,9 +1023,11 @@ class PostMortemEnvironment(Environment):
 
     def _apply_submit_grading(self, breakdown: RewardBreakdown) -> None:
         """Run the grader and set done=True."""
-        # Pass query tracking into grader
         grading_scenario = dict(self._scenario)
         grading_scenario["_correct_queries_made"] = self._correct_queries_made
+        # Multi-agent extension — pass critique tracking to grader
+        grading_scenario["_critiques_received"]   = len(self._skeptic_critiques)
+        grading_scenario["_critiques_addressed"]  = len(self._critiques_addressed_indices)
         self._grade_result = _grade_submission(self._written_sections, grading_scenario)
         # Add grader score to cumulative (it's the bulk of the final score)
         self._cumulative_reward = round(
@@ -787,4 +1072,8 @@ class PostMortemEnvironment(Environment):
             last_reward=self._cumulative_reward,
             done=self._done,
             retrieved_logs=retrieved_logs,
+            # Multi-agent extension
+            skeptic_critiques=list(self._skeptic_critiques),
+            critiques_addressed=len(self._critiques_addressed_indices),
+            reviews_requested=self._reviews_requested,
         )
