@@ -23,6 +23,18 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 
 📄 **[Read the Round 2 blog post with training results](./BLOG.md)** — includes +32.8% reward improvement from TRL fine-tuning.
 
+## 📂 Submission Materials
+
+| Resource | Link | Description |
+|---|---|---|
+| 🌐 Live Environment | [HuggingFace Space](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer) | Deployed, healthy, ready for inference |
+| 💻 Source Code | [GitHub](https://github.com/Jeevan2798/incident-postmortem-writer) | Full source, OpenEnv-compliant |
+| 📝 Blog Post | [BLOG.md](./BLOG.md) | Round 2 writeup with methodology + results |
+| 📊 Pitch Deck | [pitch_deck.pptx](./pitch_deck.pptx) | 7-slide presentation (Grand Finale) |
+| 📈 Reward Chart | [reward_improvement.png](./reward_improvement.png) | Before/after fine-tuning across 4 tasks |
+| 📉 Training Loss | [training_loss_curve.png](./training_loss_curve.png) | TRL SFT convergence over 290 steps |
+| 📁 Training Metrics | [training_results.json](./training_results.json) | Full numerical results |
+
 ## Why This Environment
 
 Every SRE team writes post-mortems after incidents. It's a high-stakes, time-pressured task that requires:
@@ -237,7 +249,17 @@ For the Grand Finale, we fine-tuned **Qwen 2.5-0.5B** using HuggingFace TRL's `S
 | Expert     | 0.321  | 0.508 | **+0.187** |
 | **Average**| **0.537** | **0.714** | **+0.176** |
 
-Training loss descended cleanly from **3.09 → 0.035** over 290 steps. Full write-up and charts in [`BLOG.md`](./BLOG.md). Reproducibility artifacts: [`training_results.json`](./training_results.json), [`reward_improvement.png`](./reward_improvement.png), [`training_loss_curve.png`](./training_loss_curve.png).
+Training loss descended cleanly from **3.09 → 0.035** over 290 steps.
+
+![Reward Improvement: Qwen 2.5-0.5B student before vs after TRL fine-tuning across all 4 difficulty levels. Average reward improved from 0.537 to 0.714 (+32.8%).](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png)
+
+*Before vs after TRL SFT fine-tuning — all 4 tasks improved. Medium/Hard/Expert gained +0.19 to +0.24 each.*
+
+![Training loss curve — TRL SFTTrainer convergence over 290 steps.](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png)
+
+*Training loss descent over 290 steps (5 epochs × 234 examples). Smooth convergence confirms the student model learned the high-reward trajectory patterns.*
+
+Full write-up and methodology in [`BLOG.md`](./BLOG.md). Reproducibility artifacts: [`training_results.json`](./training_results.json), [`reward_improvement.png`](./reward_improvement.png), [`training_loss_curve.png`](./training_loss_curve.png).
 
 
 ### Run Baseline Inference
