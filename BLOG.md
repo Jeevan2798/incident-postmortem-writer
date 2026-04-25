@@ -1,4 +1,4 @@
-# Teaching an AI to write 3 AM post-mortems: my OpenEnv hackathon journey
+# Teaching an AI to write incident post-mortems: my OpenEnv hackathon journey
 
 I'm a software engineer. I ship code to production. And the part of the job nobody talks about in interviews is what happens *after* a deployment goes out — those few days where you're nervously watching dashboards, scrubbing logs, hoping nothing breaks.
 
@@ -72,6 +72,12 @@ I sat there for a minute looking at the numbers. This was the first time I'd see
 
 ![V1 Reward Improvement](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png)
 
+*V1 — Qwen 2.5-0.5B before vs after TRL SFT fine-tuning. Average reward improved from 0.537 to 0.714 (+32.8%).*
+
+![V1 Training Loss Curve](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png)
+
+*V1 training loss over 290 steps — clean convergence from 3.09 to 0.035, the kind of curve you get when the student is genuinely learning high-reward patterns rather than memorizing surface features.*
+
 ---
 
 ## Adding a second voice
@@ -130,6 +136,12 @@ This isn't a bug in the pipeline. It's a documented finding in tool-use research
 So now I have two stories. **V1 proves the training pipeline works** — clean +32.8% on the full environment. **V2 proves the environment can be trained on its multi-agent extension** — measurable gains on three of four tasks, with the medium regression honestly disclosed as a capacity limit. With a 7B-class model, V2 should keep V1's gains and add the multi-agent capability without trade-off.
 
 ![V2 Reward Improvement](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement_v2.png)
+
+*V2 — Qwen 2.5-0.5B trained on mixed single + multi-agent episodes. Easy task reaches perfect score. Medium regression reflects the 0.5B parameter capacity limit when learning conditional multi-agent behavior.*
+
+![V2 Training Loss Curve](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve_v2.png)
+
+*V2 training loss over 192 steps — convergence from 2.35 to 0.0047 on the multi-agent-enriched dataset.*
 
 ---
 
