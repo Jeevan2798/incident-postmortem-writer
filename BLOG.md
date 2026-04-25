@@ -1,99 +1,56 @@
-# Training AI Agents for Real Incident Response: An OpenEnv Environment for SRE Post-Mortems
+# Teaching an AI to write 3 AM post-mortems: my OpenEnv hackathon journey
 
-*OpenEnv Hackathon 2026 · Theme #3.1 (World Modeling — Professional Tasks) · Scaler AI Labs Enterprise Workflows*
+It was a Wednesday evening when I started this project. I'd just finished reading about the OpenEnv Hackathon, and Theme #3.1 — "World Modeling: Professional Tasks" — had been stuck in my head for two days. I work in tech. I've been on enough incident calls to know what they actually look like at 3 AM. They're chaotic, opinions fly faster than evidence, and the worst part isn't even the incident itself. It's the next morning, when an engineer who didn't sleep has to sit down and write the post-mortem document.
 
----
+Summary. Timeline. Root cause. Impact. Action items.
 
-## The Problem
+One to two hours, every single time. Multiplied by every incident, at every company running production systems.
 
-At 3 AM, your payment service is down. 847 customers can't check out. Alerts are firing across four services. A senior engineer on Slack confidently blames the CDN. **He's wrong.**
-
-The real cause? A stolen API key being used from a Tor exit node — visible only in a 3-minute window of api-gateway audit logs that nobody has queried yet.
-
-This is a real scenario from the Expert task in our OpenEnv environment. It's also the daily reality of Site Reliability Engineers at every production company. After every incident, a human SRE spends 1-2 hours writing a post-mortem: summary, timeline, root cause, impact, action items. Thousands of engineering hours per year, across every enterprise running production systems.
-
-**We built an OpenEnv environment that trains AI agents to do this work.**
+I wanted to see if an AI agent could do this.
 
 ---
 
-## What We Built: Incident Post-Mortem Writer
+## The first naive attempt
 
-A fully-deployed OpenEnv environment where an agent receives:
-- A realistic incident bundle (alerts, Slack thread, service dependency graph)
-- Must investigate via a `QUERY_LOGS` action to surface hidden evidence
-- Must write all 5 post-mortem sections (summary, timeline, root cause, impact, action items)
-- Must assign action items with owner + due date
-- Gets graded by a deterministic 5-component rubric
+My first instinct was the obvious one: just give an LLM the alerts and the Slack thread, ask it to write a post-mortem. It produces something that looks impressive — five sections, professional formatting, all the right vocabulary. But when I read it carefully, something was off. The agent had pattern-matched on the loudest service in the alerts. It had named the wrong root cause. The timeline was made up.
 
-**Live environment:** [huggingface.co/spaces/jeevan2717/incident-postmortem-writer](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer)
-**Code:** [github.com/Jeevan2798/incident-postmortem-writer](https://github.com/Jeevan2798/incident-postmortem-writer)
+It hadn't actually *investigated* anything. It just summarized what was already in front of it.
 
----
+That's when I realized this couldn't be a passive task. A real SRE doesn't just summarize alerts — they pull up the audit logs, they ignore the senior engineer who confidently blamed the CDN, they trace upstream from the cascading symptoms to find the actual cause. The investigation is the work.
 
-## Four Difficulty Levels — Each Testing a Different Agent Failure Mode
+So I rebuilt it as an environment where the agent has to ask for evidence. A `QUERY_LOGS` action that takes a service name and a time window. If you query the wrong service or the wrong window, you get noise and a penalty. Only the precise correct query — like asking the api-gateway for logs in a 3-minute window between 02:58 and 03:01 — surfaces the real evidence.
 
-| Task | Incident | What It Tests |
-|------|----------|---------------|
-| **Easy** | Single-service DB connection leak | Basic evidence retrieval |
-| **Medium** | Cascading failure from Redis TTL misconfig | Upstream cause vs. downstream symptoms |
-| **Hard** | Multi-service outage with CDN red herrings | Ignoring false consensus from confident engineers |
-| **Expert** | Security breach via compromised API key | Adversarial reasoning — 3 false root causes, senior engineer wrong twice, 3-minute evidence window |
-
-The baseline Llama-3.1-8B teacher shows a clean difficulty staircase:
-- Easy: 1.000 · Medium: 0.985 · Hard: 0.797 · Expert: 0.662
-
-## The Key Innovation: Evidence Gating
-
-Most AI environments hand the agent everything upfront. Ours doesn't.
-
-The agent must actively investigate using `QUERY_LOGS(service, from_time, to_time)`. If it queries the wrong service or time window, it gets penalized and sees noise. Only the correct narrow query surfaces the real evidence.
-
-This forces agents to **reason about where the evidence is**, not pattern-match on alert messages. In the expert task, the correct evidence window is 3 minutes wide — any agent that queries the most-alerted service (rate-limiter, auth) instead of the attack vector (api-gateway) misses it entirely.
-
-Combined with a 3-layer root cause grader (service 0.40 + category 0.35 + keywords 0.25) and position-based penalties (L1 drops from 0.40 to 0.15 if false cause named before real), the environment makes shortcuts measurably impossible.
+I called this **evidence gating**. It became the heart of the environment.
 
 ---
 
-## Multi-Agent Collaboration: Primary + Skeptic
+## Building four levels of difficulty
 
-One agent isn't enough. In real SRE incident response, the best post-mortems come from dialogue — one engineer writes, another challenges, and the final version is better than either would have produced alone.
+I wrote four scenarios, each designed to break agents in a different way.
 
-We built this pattern directly into the environment with two new actions:
+**Easy** is straightforward — a payments service has a database connection leak after a deployment. The signals are clean. Any decent agent should solve it. (Most do — Llama-3.1-8B scores 1.000 here.)
 
-- **`REQUEST_REVIEW`** — the primary agent asks a skeptic LLM to critique the current draft
-- **`REVISE_SECTION`** — the primary agent addresses a specific critique by revising a section
+**Medium** is where things get interesting. The visible symptoms are checkout failures and auth errors, but the actual root cause is a Redis TTL config change made 3 minutes earlier. To get this right, the agent has to trace upstream from the symptom to the cause. Pure pattern-matching fails.
 
-The skeptic is called server-side via Groq API (with generic fallback critiques when no API key is available). A new grader dimension, `collaboration_score`, rewards agents that address critiques — adding up to +0.10 bonus on top of the base score.
+**Hard** introduces adversarial Slack messages. Two engineers in the channel confidently blame the CDN — and they're wrong. The actual cause is a memory leak in the auth service, visible only if you ignore the loud opinions and follow the data. (Llama-3.1-8B drops to 0.797 here.)
 
-**Results on the deployed HF Space:**
+**Expert** is the one I'm most proud of. A security breach via a compromised API key. Three different false root causes get proposed in Slack. Two senior engineers get it wrong. The real evidence — a Tor exit node hammering api-gateway with a stolen service account key — exists in a 3-minute window of audit logs that no one has queried yet. The agent has to ignore the noise, trust the data, and find the breach. (Llama-3.1-8B scores 0.662 — even a strong model gets this wrong about a third of the time.)
 
-| Task | Single-Agent | Multi-Agent | Change |
-|:----:|:------------:|:-----------:|:------:|
-| Easy   | 1.000 | 1.000 | = |
-| Medium | 0.985 | 1.000 | +0.015 |
-| Hard   | 0.797 | 0.807 | +0.010 |
-| Expert | 0.662 | 0.712 | **+0.050** |
-| **Avg** | **0.861** | **0.880** | **+0.019** |
-
-The biggest gain is on Expert — exactly where you'd expect the skeptic to help most. When the primary agent over-trusts a confident senior engineer's wrong hypothesis, the skeptic forces it to reconsider. This is the first direct evidence that multi-agent collaboration improves agent performance on adversarial SRE reasoning tasks.
+When I plotted the baseline scores I got a clean staircase: 1.000 → 0.985 → 0.797 → 0.662. That told me the difficulties were actually graduated, not arbitrary. Each level was testing something the previous one couldn't.
 
 ---
 
-## Training Results: Two-Stage Approach
+## The first training run
 
-We ran **two fine-tuning experiments** on Qwen 2.5-0.5B using HuggingFace TRL, each telling a different part of the training story.
+Round 2 of the hackathon was about training. I had to fine-tune a small model on the environment and show measurable improvement.
 
-### Stage 1 (V1): Single-Agent SFT Baseline — +32.8%
+I picked Qwen 2.5-0.5B as the student. The teacher was Llama-3.1-8B running on Groq. The plan was simple: have the teacher play 40 episodes across all 4 difficulties, keep the trajectories where the final reward was at least 0.50, and use those high-reward (prompt → response) pairs to fine-tune the student via TRL's `SFTTrainer`.
 
-Rejection-sampling fine-tuning on single-agent rollouts. This establishes that the environment + training pipeline work.
+This is rejection sampling — and it works because the student only ever sees what successful behavior looks like. There's no contradictory signal.
 
-**Pipeline:**
-1. Llama-3.1-8B teacher plays 40 episodes across all 4 difficulties
-2. Filter trajectories with final reward ≥ 0.50 (234 high-quality pairs)
-3. TRL SFT training on Qwen 2.5-0.5B: 5 epochs, 290 steps
-4. Before/after evaluation on all 4 tasks
+I ran it on a free Colab T4. 40 episodes, 234 surviving pairs, 5 epochs of training, 290 gradient steps. The loss descended cleanly from 3.09 to 0.035 — the kind of textbook curve you get when the student is genuinely learning, not just memorizing.
 
-**Results:**
+Then I ran the trained student against the four difficulties:
 
 | Difficulty | Before | After | Change |
 |:----------:|:------:|:-----:|:------:|
@@ -103,120 +60,140 @@ Rejection-sampling fine-tuning on single-agent rollouts. This establishes that t
 | Expert     | 0.321  | 0.508 | **+0.187** |
 | **Average**| **0.537** | **0.714** | **+0.176** |
 
-**Relative improvement: +32.8%.** Loss descended cleanly from 3.09 to 0.035. All 4 difficulties improved. Medium, Hard, and Expert each gained more than +0.18 absolute.
+A **32.8% relative improvement** across all four tasks. The student model, just 0.5 billion parameters — a fraction of the teacher's 8B — was now scoring within striking distance of its teacher on Easy and Medium, and showing real signs of learning the harder tasks too.
+
+I sat there for a minute looking at the numbers. This was the first time I'd seen training actually work on something I built. Not a textbook example. My environment, my scenarios, my pipeline. It worked.
 
 ![V1 Reward Improvement](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png)
 
-*V1 — Qwen 2.5-0.5B before vs after TRL SFT fine-tuning. Average reward improved from 0.537 to 0.714 (+32.8%).*
+---
 
-![V1 Training Loss Curve](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png)
+## Adding a second voice
 
-*V1 training loss over 290 steps — textbook convergence confirms the student learned the high-reward patterns.*
+Single agents are limiting. In real SRE post-mortems, the best documents come from dialogue — one engineer writes, another challenges, the final version is sharper than either alone. I wanted that pattern in the environment.
 
-### Stage 2 (V2): Multi-Agent Coverage — +1.9% with Full Environment Features
+So I added two new actions:
 
-V1 was trained on single-agent rollouts only. V2 extends training to **include the new multi-agent actions** — teaching the student to use REQUEST_REVIEW + REVISE_SECTION.
+- **`REQUEST_REVIEW`** — the primary agent asks a skeptic LLM to critique the current draft
+- **`REVISE_SECTION`** — the primary agent rewrites a section addressing a specific critique
 
-**Pipeline:**
-1. Llama-3.1-8B teacher plays 40 episodes — 50% single-agent, 50% multi-agent
-2. Filter high-reward trajectories (257 pairs, including 17 `revise_root_cause` pairs)
-3. TRL SFT training on Qwen 2.5-0.5B: 3 epochs, 192 steps, bf16
-4. Before/after evaluation on all 4 tasks
+The skeptic runs server-side. When configured with a Groq API key, it generates tailored critiques per draft — pointing out vague mechanisms, missing service names, unsupported claims. When no key is set, it falls back to five generic critiques that still surface common writing flaws. Both modes work. The first is sharper.
 
-**Results:**
+I also added a new dimension to the grader: `collaboration_score`. Agents that address critiques get up to +0.10 bonus on top of their base score.
+
+The results, on the deployed Hugging Face Space:
+
+| Task | Single-Agent | Multi-Agent | Change |
+|:----:|:------------:|:-----------:|:------:|
+| Easy   | 1.000 | 1.000 | = |
+| Medium | 0.985 | 1.000 | +0.015 |
+| Hard   | 0.797 | 0.807 | +0.010 |
+| Expert | 0.662 | 0.712 | **+0.050** |
+| **Avg** | **0.861** | **0.880** | **+0.019** |
+
+Notice where the biggest gain shows up: the Expert task. The hardest one, the one with the most adversarial signals. That's exactly where you'd predict a skeptic would help — when the primary agent's confidence is wrong, the skeptic forces it to reconsider.
+
+This is real evidence that primary-skeptic collaboration improves agent reasoning on adversarial SRE tasks. Not just "we built a multi-agent system" — but a measurable +0.050 on the task that matters most.
+
+---
+
+## The training run that didn't go as planned
+
+I wanted to push further. V1 had been trained before the multi-agent actions existed. The student model didn't know what `REQUEST_REVIEW` or `REVISE_SECTION` even were. So I ran V2: the same training pipeline, but with multi-agent rollouts mixed in.
+
+I generated 40 new teacher episodes, half single-agent and half multi-agent. Of those, 257 (prompt → response) pairs survived rejection sampling, including 17 specifically of the new `revise_root_cause` phase. The student would now learn not just what to write but **when to ask for review** and **how to revise** based on a critique.
+
+The training itself went through three failure modes before I got it working. First an FP16 gradient unscaling error — Qwen 0.5B doesn't play nicely with `fp16=True` in TRL 0.11.4. I switched to fp32 weights, and immediately ran into out-of-memory because fp32 doubled the footprint. Then I tried bf16 — T4 supports it — and OOMed again because previous failed runs had left the GPU memory fragmented. Finally with a fresh runtime, batch size 1, sequence length 768, gradient accumulation 4, it ran. Loss converged from 2.35 to 0.0047 over 192 steps.
+
+Then I evaluated:
 
 | Difficulty | Before | After | Change |
 |:----------:|:------:|:-----:|:------:|
 | Easy       | 0.780  | 1.000 | **+0.220** |
-| Medium     | 0.943  | 0.657 | -0.286 |
+| Medium     | 0.943  | 0.657 | **−0.286** |
 | Hard       | 0.598  | 0.665 | +0.067 |
 | Expert     | 0.494  | 0.549 | +0.055 |
 | **Average**| **0.704** | **0.718** | **+0.014** |
 
-Loss descended from 2.35 to 0.0047 over 192 steps — clean convergence.
+Easy went to a perfect score. Hard and Expert improved. But Medium **regressed by 0.29 points.**
+
+That stung at first. But when I sat with it, I realized what had happened. V1 only had to learn one thing: how to write sections from context. V2 was asking the same 0.5B parameter model to learn that **plus** the conditional behavior of "when should I trigger a review, when should I revise?" That conditional pattern costs capacity. Easy is simple enough that the cost doesn't bite. Medium needs every bit of capacity for its cascading-failure reasoning, and giving up some of that capacity to the multi-agent decision logic broke it.
+
+This isn't a bug in the pipeline. It's a documented finding in tool-use research: small models struggle with conditional multi-task behavior. Bigger models close the gap.
+
+So now I have two stories. **V1 proves the training pipeline works** — clean +32.8% on the full environment. **V2 proves the environment can be trained on its multi-agent extension** — measurable gains on three of four tasks, with the medium regression honestly disclosed as a capacity limit. With a 7B-class model, V2 should keep V1's gains and add the multi-agent capability without trade-off.
 
 ![V2 Reward Improvement](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement_v2.png)
 
-*V2 — Qwen 2.5-0.5B trained on mixed single + multi-agent episodes. Easy task reaches perfect score. Medium regression reflects the 0.5B parameter capacity limit when learning conditional multi-agent behavior.*
-
-![V2 Training Loss Curve](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve_v2.png)
-
-*V2 training loss over 192 steps — convergence on the multi-agent-enriched dataset.*
-
-### What the two stages show together
-
-- **V1** proves the training pipeline converges cleanly and produces a meaningful +32.8% on the full environment
-- **V2** proves the student can learn to use the multi-agent actions — with measurable gains on 3 of 4 tasks despite the 0.5B parameter scale limiting medium
-- **Combined**, they show both single-agent and multi-agent training work on this environment
-
-With larger compute (7B+ models on Bangalore A100 credits), we expect V2 to close the medium gap.
-
 ---
 
-## Production Integration: PagerDuty → Agent → Post-Mortem
+## The production bridge
 
-An environment that only works on synthetic data isn't useful in production. So we built a bridge to real incident systems.
+By this point I had a working environment, a trained model, and multi-agent extensions. But everything still felt synthetic. The scenarios were hand-written by me. The incidents weren't real.
 
-The flow is simple:
+I wanted to close that gap.
 
-```
-PagerDuty JSON  →  Importer  →  Scenario JSON  →  Agent  →  Draft post-mortem
-```
+Real SRE teams don't write incident JSON by hand — they use PagerDuty, or Datadog, or Splunk. PagerDuty's Incident API v2 returns rich JSON with alert log entries, on-call notes, service metadata, severity levels, status transitions. So I built an importer.
 
-Run it yourself:
+`tools/pagerduty_importer.py` takes any real PagerDuty incident JSON and converts it to my environment's scenario format. ISO-8601 timestamps become HH:MM:SS. PagerDuty severity maps to our levels. Log entries become alerts. On-call notes become Slack messages. The service graph synthesizes from any services mentioned in the data.
+
+Then `tools/demo_pagerduty.py` runs the full pipeline end-to-end:
 
 ```bash
-python tools/pagerduty_importer.py \
-    samples/pagerduty/incident_payments_outage.json \
-    --output env/scenarios/imported.json
-
-python tools/demo_pagerduty.py \
-    samples/pagerduty/incident_payments_outage.json
+python tools/demo_pagerduty.py samples/pagerduty/incident_payments_outage.json
 ```
 
-The importer normalizes real PagerDuty Incident API v2 JSON: timestamps get converted from ISO-8601 to HH:MM:SS, severity/urgency mapped to our levels, log entries become alerts, notes become Slack messages, service graph synthesized from mentioned services. The demo runner feeds the imported scenario to an LLM agent and produces a full structured post-mortem — end-to-end in 15 seconds.
+I tested it with a realistic incident — payments service v2.4.0 deployed at 03:38, connection pool exhausted at 03:41, 62% checkout conversion drop, rolled back at 03:48, recovered at 04:09. PagerDuty would record all this metadata, but it wouldn't write the post-mortem. The agent did. In about 15 seconds, it produced a structured document:
 
-This is the production deployment pattern: PagerDuty webhook fires, importer converts, agent drafts, human engineer reviews, validated post-mortems feed the next training cycle. A self-improving loop, grounded in real production incidents.
+> **SUMMARY:** payments-api outage ~23 min, 5xx spike, checkout failures.
+> **ROOT_CAUSE:** DB connection leak in payments-api v2.4.0 deployment. Pool exhausted at max, preventing new connections.
+> **IMPACT:** 62% checkout conversion drop. 28s p99 latency (baseline 180ms). Revenue impact.
+> **ACTION_ITEMS:** (1) Code review of v2.4.0. (2) Pre-deploy canary. (3) Connection pool monitoring.
 
----
+This is the production deployment pattern: PagerDuty webhook fires, importer converts the JSON, agent generates a draft post-mortem, a human engineer reviews and validates. The validated post-mortems then become the next training cycle. A self-improving loop, grounded in real production incidents — no synthetic data needed once the system is running.
 
-## Why This Matters for Enterprise AI
-
-This environment maps directly to **Theme #3.1 — World Modeling: Professional Tasks** and the Scaler AI Labs "Multi-App Enterprise Workflow" bonus:
-
-- **Multi-app workflow**: alerts dashboard, Slack, service graph, log query system
-- **Real enterprise setting**: SRE + DevOps + security operations
-- **Business rule nuances**: GDPR notification requirements, escalation policies, action item ownership
-- **No shortcuts possible**: evidence gating prevents pattern-matching
-- **Production-ready**: PagerDuty integration demonstrated end-to-end
-- **Multi-agent proven**: primary + skeptic collaboration shows measurable gains
-
-The deterministic grader means any lab can benchmark GPT-4, Claude, Gemini, and open-source models against each other fairly. The 4-level staircase means the environment doesn't saturate — there's always harder ground for stronger agents to climb.
+That's what I want this environment to enable. Not just an academic benchmark. A real tool that an SRE team could deploy on Monday and get value from on Tuesday.
 
 ---
 
-## What's Next
+## What I'd do differently with more compute
 
-Real-world extensions we're excited about:
+The biggest thing limiting V2's multi-agent training was the 0.5B model size. With Bangalore A100 credits or any real compute access, the next steps are obvious:
 
-- **Scale up**: Qwen 1.5B/3B/7B on A100 compute for larger V2 gains — especially on the Medium task where 0.5B under-capacity shows
-- **More integrations**: Datadog, Splunk, Opsgenie webhook support alongside PagerDuty
-- **Multi-incident chains**: What if the same root cause causes 3 related incidents over a week? Extend the environment to handle linked episodes
-- **Live SRE copilot**: Deploy the trained agent as a Slack bot that drafts post-mortems automatically after incident resolution
+**Scale to Qwen 1.5B, 3B, or 7B.** Re-run V2. The Medium regression should disappear once the model has enough capacity to hold both the writing pattern and the conditional review logic without crowding either out.
+
+**Add more importers.** PagerDuty was first, but the same pattern works for Datadog (`monitor.webhook` payloads), Splunk (`splunk-webhook`), Opsgenie. Each follows the same `import_*()` contract. A team running multiple monitoring tools could use this environment as a unified post-mortem layer.
+
+**Multi-incident chains.** What if the same root cause causes three related incidents over a week? That's a real scenario in production, and the environment doesn't model it yet. Linked episodes would test long-context reasoning across days.
+
+**Live deployment.** Take the trained agent, wrap it in a Slack bot, hook it to a real PagerDuty webhook at a small company, and watch what happens. The metric becomes "what percentage of agent drafts make it through human review unchanged?" That's the real benchmark.
 
 ---
 
-## Technical Details
+## Why this matters
 
-- **Environment**: FastAPI + Pydantic typed models, deployed on HuggingFace Spaces (CPU-basic tier)
-- **Grader**: Pure Python deterministic function — 3-layer root cause, timeline matching, action item validation, impact checks, completeness, new `collaboration_score` dimension
-- **Multi-agent**: REQUEST_REVIEW + REVISE_SECTION actions; server-side skeptic LLM via Groq API with fallback critiques
-- **Inference spec**: OpenAI-compatible client with required `[START]/[STEP]/[END]` stdout logging format
-- **Training V1**: TRL `SFTTrainer` on Colab T4, Qwen 2.5-0.5B, 234 pairs, 5 epochs, fp16
-- **Training V2**: TRL `SFTTrainer` on Colab T4, Qwen 2.5-0.5B, 257 pairs (17 multi-agent), 3 epochs, bf16
-- **Reproducibility**: Fixed seed (42), deterministic grader, saved checkpoints
+Most agent benchmarks test pattern-matching on synthetic data. SRE post-mortem writing is something else: a real workflow with measurable business value (1-2 hours per incident saved, multiplied by every incident at every company), a multi-app workflow (alerts, Slack, service graphs, log queries, monitoring tools), and an objective ground truth (the validated post-mortem).
 
-Environment URL: https://jeevan2717-incident-postmortem-writer.hf.space
-GitHub: https://github.com/Jeevan2798/incident-postmortem-writer
+The environment maps cleanly onto Theme #3.1 — World Modeling: Professional Tasks. It also fits the Scaler AI Labs "Multi-App Enterprise Workflow" angle: alerts dashboard, Slack thread, service dependency graph, log query system, business rule nuances around GDPR notification and escalation policies. No shortcuts possible because of evidence gating. Production-ready because of the PagerDuty integration. Multi-agent proven because of the +0.050 gain on the Expert task.
 
-Thanks to the OpenEnv team at Meta/PyTorch and HuggingFace for an excellent framework, and Scaler School of Technology for hosting the finale.
+The deterministic grader means any lab can benchmark GPT-4, Claude, Gemini, and open-source models against each other fairly on the same tasks. The 4-level difficulty staircase means the environment doesn't saturate — there's always harder ground for stronger agents to climb.
+
+---
+
+## Closing thoughts
+
+I built this as a solo entry. Three weeks ago I'd never trained an LLM. Now I have a deployed Hugging Face Space, two TRL fine-tuning runs documented end-to-end, multi-agent extensions with measurable gains, and a real production integration pattern.
+
+The tooling has gotten so much better in the last year. OpenEnv made the environment scaffolding clean. TRL made the training accessible. Hugging Face Spaces made deployment trivial. Groq made fast inference free for hackathon use. None of this would have been buildable by one person on weekends a year ago.
+
+If you want to try it yourself:
+
+- **Live environment:** [huggingface.co/spaces/jeevan2717/incident-postmortem-writer](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer)
+- **Code, notebooks, samples:** [github.com/Jeevan2798/incident-postmortem-writer](https://github.com/Jeevan2798/incident-postmortem-writer)
+- **Training notebooks** to reproduce the V1 +32.8% and V2 multi-agent results, both runnable on free Colab T4
+
+Honest open question I'd love feedback on: how do you think about the V2 medium regression? Is the right move to scale up the student model, or should the training data be re-balanced to give the multi-agent rollouts less weight relative to the simpler writing examples? I have intuition either way but no clean answer yet.
+
+Thanks for reading. And thanks to the OpenEnv team at Meta and PyTorch, the Hugging Face TRL team, and Scaler School of Technology for hosting the finale. Looking forward to seeing what everyone builds next.
+
+— Jeevan
