@@ -36,6 +36,75 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 | 🔌 PagerDuty Integration | [tools/](./tools/) · [samples/](./samples/) | Real production incident JSON → structured post-mortem |
 | 🔬 Inference Scripts | [inference.py](./inference.py) · [inference_multiagent.py](./inference_multiagent.py) | Single-agent and multi-agent inference runners |
 
+---
+
+## 🔗 All Links & URLs
+
+**Primary links (anywhere a judge can use these):**
+
+| What | URL |
+|---|---|
+| 🌐 Live HuggingFace Space (deployed environment) | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer |
+| 🌐 Direct API base URL | https://jeevan2717-incident-postmortem-writer.hf.space |
+| 💻 GitHub repository | https://github.com/Jeevan2798/incident-postmortem-writer |
+| 📝 Blog post (Round 2 + Grand Finale write-up) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/BLOG.md |
+| 📊 Pitch deck (Grand Finale, 9 slides) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/pitch_deck.pptx |
+
+**Endpoints on the live HF Space:**
+
+| Endpoint | URL |
+|---|---|
+| Health check | https://jeevan2717-incident-postmortem-writer.hf.space/health |
+| Reset (POST) | https://jeevan2717-incident-postmortem-writer.hf.space/reset |
+| Step (POST) | https://jeevan2717-incident-postmortem-writer.hf.space/step |
+| Files browser | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/tree/main |
+
+**Training artifacts (V1):**
+
+| Asset | URL |
+|---|---|
+| `training_results.json` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/blob/main/training_results.json |
+| `reward_improvement.png` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png |
+| `training_loss_curve.png` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png |
+| `trl_training.ipynb` (Colab notebook) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/trl_training.ipynb |
+
+**Training artifacts (V2 — multi-agent):**
+
+| Asset | URL |
+|---|---|
+| `training_results_v2.json` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/blob/main/training_results_v2.json |
+| `reward_improvement_v2.png` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement_v2.png |
+| `training_loss_curve_v2.png` | https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve_v2.png |
+| `trl_training_v2.ipynb` (Colab notebook) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/trl_training_v2.ipynb |
+
+**Code (GitHub raw views):**
+
+| File | URL |
+|---|---|
+| `server/environment.py` (multi-agent enabled) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/server/environment.py |
+| `server/models.py` (Pydantic schema) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/server/models.py |
+| `server/app.py` (FastAPI server) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/server/app.py |
+| `inference.py` (single-agent runner) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference.py |
+| `inference_multiagent.py` (multi-agent runner) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference_multiagent.py |
+| `tools/pagerduty_importer.py` (PagerDuty bridge) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/pagerduty_importer.py |
+| `tools/demo_pagerduty.py` (PagerDuty demo) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/demo_pagerduty.py |
+
+**Sample PagerDuty JSON (test data):**
+
+| Sample | URL |
+|---|---|
+| Easy: Payments DB connection leak | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_payments_outage.json |
+| Medium: Redis TTL cascading failure | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_redis_ttl.json |
+
+**External references:**
+
+| Reference | URL |
+|---|---|
+| OpenEnv framework (Meta/PyTorch) | https://github.com/meta-pytorch/OpenEnv |
+| HuggingFace TRL library | https://github.com/huggingface/trl |
+| Qwen 2.5-0.5B-Instruct (base student model) | https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct |
+| Llama 3.1 8B Instant (teacher model via Groq) | https://groq.com/ |
+
 ## Why This Environment
 
 Every SRE team writes post-mortems after incidents. It's a high-stakes, time-pressured task that requires:
