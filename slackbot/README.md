@@ -4,7 +4,7 @@ A working Slack slash command that demonstrates the production deployment patter
 
 ## Demo
 
-[![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID)
+[![Watch the demo](https://img.youtube.com/vi/-OH_jnZ18rk/maxresdefault.jpg)](https://youtu.be/-OH_jnZ18rk)
 
 **60-second video** showing the bot generating a structured post-mortem from a real PagerDuty incident JSON URL.
 

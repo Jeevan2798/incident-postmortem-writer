@@ -182,7 +182,7 @@ So the night before submission, I built a Slack bot.
 
 It's a slash command. A user types `/postmortem <incident-json-url>` in a Slack channel. The bot fetches the incident JSON, runs it through my PagerDuty importer, calls the agent, and posts a structured post-mortem back to the channel. End-to-end in about twenty seconds.
 
-[![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID)
+[![Watch the demo](https://img.youtube.com/vi/-OH_jnZ18rk/maxresdefault.jpg)](https://youtu.be/-OH_jnZ18rk)
 
 The architecture is small but real:
 

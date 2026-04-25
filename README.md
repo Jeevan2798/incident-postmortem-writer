@@ -39,7 +39,7 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 
 ## 🤖 Live Slack Bot Demo
 
-[![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID)
+[![Watch the demo](https://img.youtube.com/vi/-OH_jnZ18rk/maxresdefault.jpg)](https://youtu.be/-OH_jnZ18rk)
 
 **The agent runs as a Slack slash command** — paste a PagerDuty incident JSON URL into Slack, get a structured post-mortem in ~20 seconds. See the [slackbot/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/slackbot) folder for the FastAPI implementation.
 
