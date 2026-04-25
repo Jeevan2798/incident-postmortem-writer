@@ -1,12 +1,18 @@
 # Teaching an AI to write 3 AM post-mortems: my OpenEnv hackathon journey
 
-It was a Wednesday evening when I started this project. I'd just finished reading about the OpenEnv Hackathon, and Theme #3.1 — "World Modeling: Professional Tasks" — had been stuck in my head for two days. I work in tech. I've been on enough incident calls to know what they actually look like at 3 AM. They're chaotic, opinions fly faster than evidence, and the worst part isn't even the incident itself. It's the next morning, when an engineer who didn't sleep has to sit down and write the post-mortem document.
+I'm a software engineer. I ship code to production. And the part of the job nobody talks about in interviews is what happens *after* a deployment goes out — those few days where you're nervously watching dashboards, scrubbing logs, hoping nothing breaks.
+
+When something does break — and eventually it always does — the work doesn't end with the rollback. The hard part starts the next morning. You sit down with cold coffee, open a blank doc, and try to reconstruct what happened. Pull alerts from one tool, scroll through a Slack thread that has fifteen wrong opinions and one right one buried in the middle, dig through audit logs you should have queried six hours ago. Then write it all up.
 
 Summary. Timeline. Root cause. Impact. Action items.
 
 One to two hours, every single time. Multiplied by every incident, at every company running production systems.
 
-I wanted to see if an AI agent could do this.
+I've done this enough times to know exactly which parts hurt. The investigation hurts because the evidence is scattered across five tools. The writeup hurts because you're tired and you have to be precise. And the worst part is that the post-mortem is the thing that prevents the next incident — so doing it badly costs you twice.
+
+So when I read about the OpenEnv Hackathon and saw Theme #3.1 — "World Modeling: Professional Tasks" — I had a very specific thought: this is the workflow I'd want an AI agent to do for me. Not summarize. Not chat. *Actually do the post-mortem work.*
+
+I wanted to see if I could build that.
 
 ---
 

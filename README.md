@@ -29,12 +29,12 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 |---|---|---|
 | 🌐 Live Environment | [HuggingFace Space](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer) | Deployed, healthy, multi-agent enabled |
 | 💻 Source Code | [GitHub](https://github.com/Jeevan2798/incident-postmortem-writer) | Full source, OpenEnv-compliant |
-| 📝 Blog Post | [BLOG.md](./BLOG.md) | Two-stage training + multi-agent + production integration |
-| 📊 Pitch Deck | [pitch_deck.pptx](./pitch_deck.pptx) | 9-slide Grand Finale presentation |
-| 🧠 V1 Training (SFT) | [training_results.json](./training_results.json) · [chart](./reward_improvement.png) · [loss](./training_loss_curve.png) | Single-agent SFT baseline: **+32.8%** reward |
-| 🤝 V2 Training (Multi-Agent) | [training_results_v2.json](./training_results_v2.json) · [chart](./reward_improvement_v2.png) · [loss](./training_loss_curve_v2.png) | Multi-agent coverage: **+1.9%** with full environment features |
-| 🔌 PagerDuty Integration | [tools/](./tools/) · [samples/](./samples/) | Real production incident JSON → structured post-mortem |
-| 🔬 Inference Scripts | [inference.py](./inference.py) · [inference_multiagent.py](./inference_multiagent.py) | Single-agent and multi-agent inference runners |
+| 📝 Blog Post | [BLOG.md](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/BLOG.md) | Two-stage training + multi-agent + production integration |
+| 📊 Pitch Deck | [pitch_deck.pptx](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/pitch_deck.pptx) | 9-slide Grand Finale presentation (download) |
+| 🧠 V1 Training (SFT) | [results](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results.json) · [chart](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement.png) · [loss](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve.png) | Single-agent SFT baseline: **+32.8%** reward |
+| 🤝 V2 Training (Multi-Agent) | [results](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results_v2.json) · [chart](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement_v2.png) · [loss](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve_v2.png) | Multi-agent coverage: **+1.9%** with full environment features |
+| 🔌 PagerDuty Integration | [tools/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/tools) · [samples/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/samples) | Real production incident JSON → structured post-mortem |
+| 🔬 Inference Scripts | [inference.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference.py) · [inference_multiagent.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference_multiagent.py) | Single-agent and multi-agent inference runners |
 
 ---
 
@@ -65,18 +65,18 @@ To call them: see `inference.py` or use `curl` examples in [Setup & Usage](#setu
 
 | Asset | View on HF | Open in Colab |
 |---|---|---|
-| `training_results.json` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/blob/main/training_results.json) | — |
-| `reward_improvement.png` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement.png) | — |
-| `training_loss_curve.png` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve.png) | — |
+| `training_results.json` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results.json) | — |
+| `reward_improvement.png` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement.png) | — |
+| `training_loss_curve.png` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve.png) | — |
 | `trl_training.ipynb` | [view on GitHub](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/trl_training.ipynb) | [Open in Colab](https://colab.research.google.com/github/Jeevan2798/incident-postmortem-writer/blob/main/trl_training.ipynb) |
 
 ### Training artifacts — V2 (multi-agent coverage, +1.9%)
 
 | Asset | View on HF | Open in Colab |
 |---|---|---|
-| `training_results_v2.json` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/blob/main/training_results_v2.json) | — |
-| `reward_improvement_v2.png` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/reward_improvement_v2.png) | — |
-| `training_loss_curve_v2.png` | [view](https://huggingface.co/spaces/jeevan2717/incident-postmortem-writer/resolve/main/training_loss_curve_v2.png) | — |
+| `training_results_v2.json` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results_v2.json) | — |
+| `reward_improvement_v2.png` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement_v2.png) | — |
+| `training_loss_curve_v2.png` | [view](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve_v2.png) | — |
 | `trl_training_v2.ipynb` | [view on GitHub](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/trl_training_v2.ipynb) | [Open in Colab](https://colab.research.google.com/github/Jeevan2798/incident-postmortem-writer/blob/main/trl_training_v2.ipynb) |
 
 ### Source code (GitHub)
