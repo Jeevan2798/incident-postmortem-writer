@@ -158,7 +158,7 @@ That's what I want this environment to enable. Not just an academic benchmark. A
 
 ## What I'd do differently with more compute
 
-The biggest thing limiting V2's multi-agent training was the 0.5B model size. With Bangalore A100 credits or any real compute access, the next steps are obvious:
+The biggest thing limiting V2's multi-agent training was the 0.5B model size. With access to a single A100 or L4 GPU, the next steps are obvious:
 
 **Scale to Qwen 1.5B, 3B, or 7B.** Re-run V2. The Medium regression should disappear once the model has enough capacity to hold both the writing pattern and the conditional review logic without crowding either out.
 
