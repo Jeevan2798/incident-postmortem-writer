@@ -151,7 +151,7 @@ By this point I had a working environment, a trained model, and multi-agent exte
 
 I wanted to close that gap.
 
-Real SRE teams don't write incident JSON by hand — they use PagerDuty, or Datadog, or Splunk. PagerDuty's Incident API v2 returns rich JSON with alert log entries, on-call notes, service metadata, severity levels, status transitions. So I built an importer.
+Real SRE teams don't write incident JSON by hand — they use PagerDuty, or Datadog, or Splunk. So I built importers for all three. PagerDuty's Incident API v2 returns rich JSON with alert log entries, on-call notes, service metadata, severity levels. Datadog's monitor webhook gives you tags and related events. Splunk's saved search alerts give you structured search results.
 
 `tools/pagerduty_importer.py` takes any real PagerDuty incident JSON and converts it to my environment's scenario format. ISO-8601 timestamps become HH:MM:SS. PagerDuty severity maps to our levels. Log entries become alerts. On-call notes become Slack messages. The service graph synthesizes from any services mentioned in the data.
 
@@ -180,7 +180,7 @@ The biggest thing limiting V2's multi-agent training was the 0.5B model size. Wi
 
 **Scale to Qwen 1.5B, 3B, or 7B.** Re-run V2. The Medium regression should disappear once the model has enough capacity to hold both the writing pattern and the conditional review logic without crowding either out.
 
-**Add more importers.** PagerDuty was first, but the same pattern works for Datadog (`monitor.webhook` payloads), Splunk (`splunk-webhook`), Opsgenie. Each follows the same `import_*()` contract. A team running multiple monitoring tools could use this environment as a unified post-mortem layer.
+**Add more importers.** PagerDuty was the first I shipped, and I followed it with Datadog and Splunk importers using the same contract — each one parses the source's webhook format, normalizes timestamps and severity levels, and outputs the same scenario format. A team running multiple monitoring tools can use this environment as a unified post-mortem layer. Opsgenie, ServiceNow ITSM, and Sentry would follow the same `import_*()` pattern.
 
 **Multi-incident chains.** What if the same root cause causes three related incidents over a week? That's a real scenario in production, and the environment doesn't model it yet. Linked episodes would test long-context reasoning across days.
 

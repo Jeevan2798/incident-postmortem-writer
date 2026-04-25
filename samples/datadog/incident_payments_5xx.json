@@ -1,0 +1,77 @@
+{
+  "id": "DD789012345",
+  "alert_id": "12345",
+  "alert_title": "[CRITICAL] Payments API 5xx error rate exceeded threshold",
+  "alert_type": "error",
+  "priority": "P1",
+  "date": "2025-10-14T03:41:00Z",
+  "timestamp": "2025-10-14T03:41:00Z",
+  "tags": [
+    "service:payments-api",
+    "env:production",
+    "team:payments",
+    "version:v2.4.0"
+  ],
+  "monitor": {
+    "id": "98765",
+    "name": "Payments API 5xx Error Rate",
+    "tags": ["service:payments-api", "env:production"],
+    "message": "5xx error rate above 5% for payments-api"
+  },
+  "alert": {
+    "triggered_at": "2025-10-14T03:41:00Z",
+    "alert_type": "error"
+  },
+  "org": {
+    "id": "org123",
+    "name": "ExampleCorp"
+  },
+  "related_events": [
+    {
+      "date": "2025-10-14T03:43:12Z",
+      "timestamp": "2025-10-14T03:43:12Z",
+      "priority": "P1",
+      "title": "Database connection pool exhausted",
+      "text": "payments-api postgres connection pool at 100/100, requests queuing",
+      "source": {"service": "payments-api"}
+    },
+    {
+      "date": "2025-10-14T03:46:30Z",
+      "timestamp": "2025-10-14T03:46:30Z",
+      "priority": "P2",
+      "title": "Checkout conversion drop",
+      "text": "Checkout conversion rate dropped 62% in the last 5 minutes",
+      "source": {"service": "checkout"}
+    },
+    {
+      "date": "2025-10-14T03:52:00Z",
+      "timestamp": "2025-10-14T03:52:00Z",
+      "priority": "P2",
+      "title": "p99 latency spike",
+      "text": "Request timeouts climbing — p99 latency now 28s (baseline 180ms)",
+      "source": {"service": "payments-api"}
+    }
+  ],
+  "comments": [
+    {
+      "timestamp": "2025-10-14T03:42:00Z",
+      "user": {"handle": "sara.chen"},
+      "message": "On-call picking this up. v2.4.0 deployed at 03:38, suspicious timing."
+    },
+    {
+      "timestamp": "2025-10-14T03:45:00Z",
+      "user": {"handle": "tom.martinez"},
+      "message": "Postgres connection count plateaued at pool_max — connection leak signature."
+    },
+    {
+      "timestamp": "2025-10-14T03:48:00Z",
+      "user": {"handle": "sara.chen"},
+      "message": "Reverting v2.4.0 to v2.3.8."
+    },
+    {
+      "timestamp": "2025-10-14T04:05:00Z",
+      "user": {"handle": "mei.zhang"},
+      "message": "Rollback complete. Connections draining. Recovery confirmed. Filing post-mortem."
+    }
+  ]
+}

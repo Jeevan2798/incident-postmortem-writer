@@ -33,8 +33,39 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 | 📊 Pitch Deck | [pitch_deck.pptx](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/pitch_deck.pptx) | 9-slide Grand Finale presentation (download) |
 | 🧠 V1 Training (SFT) | [results](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results.json) · [chart](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement.png) · [loss](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve.png) | Single-agent SFT baseline: **+32.8%** reward |
 | 🤝 V2 Training (Multi-Agent) | [results](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_results_v2.json) · [chart](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/reward_improvement_v2.png) · [loss](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/training_loss_curve_v2.png) | Multi-agent coverage: **+1.9%** with full environment features |
-| 🔌 PagerDuty Integration | [tools/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/tools) · [samples/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/samples) | Real production incident JSON → structured post-mortem |
+| 🔌 Production Integrations | [tools/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/tools) · [samples/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/samples) | PagerDuty + Datadog + Splunk importers — real incident JSON → structured post-mortem |
 | 🔬 Inference Scripts | [inference.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference.py) · [inference_multiagent.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference_multiagent.py) | Single-agent and multi-agent inference runners |
+
+
+## ⚡ Quick Reproduction (15 minutes)
+
+Want to verify the numbers yourself? Three commands:
+
+```bash
+git clone https://github.com/Jeevan2798/incident-postmortem-writer
+cd incident-postmortem-writer
+pip install -r requirements.txt
+
+# Set Groq API credentials
+export API_BASE_URL=https://api.groq.com/openai/v1
+export MODEL_NAME=llama-3.1-8b-instant
+export HF_TOKEN=<your-groq-key>
+export ENV_BASE_URL=https://jeevan2717-incident-postmortem-writer.hf.space
+
+# 1. Single-agent baseline (5 min)
+python inference.py
+# Expected: easy=1.000 medium=0.970 hard=0.797 expert=0.662 avg=0.857
+
+# 2. Multi-agent (5 min)
+python inference_multiagent.py
+# Expected: easy=1.000 medium=1.000 hard=0.807 expert=0.712 avg=0.880
+
+# 3. PagerDuty production demo (1 min)
+python tools/demo_pagerduty.py samples/pagerduty/incident_payments_outage.json
+# Generates a structured post-mortem from real PagerDuty JSON in ~15 seconds
+```
+
+The grader is deterministic — same action sequence always produces the same score. Reproducibility is a first-class concern.
 
 ---
 
@@ -89,16 +120,20 @@ To call them: see `inference.py` or use `curl` examples in [Setup & Usage](#setu
 | `inference.py` (single-agent runner) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference.py |
 | `inference_multiagent.py` (multi-agent runner) | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference_multiagent.py |
 | `tools/pagerduty_importer.py` | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/pagerduty_importer.py |
+| `tools/datadog_importer.py` | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/datadog_importer.py |
+| `tools/splunk_importer.py` | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/splunk_importer.py |
 | `tools/demo_pagerduty.py` | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/tools/demo_pagerduty.py |
 | Browse `tools/` folder | https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/tools |
 | Browse `samples/` folder | https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/samples |
 
-### PagerDuty sample data (real-format JSON)
+### Sample data — real-format JSON from production tools
 
-| Sample | Difficulty | URL |
-|---|:---:|---|
-| Payments DB connection leak | Easy | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_payments_outage.json |
-| Redis TTL cascading failure | Medium | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_redis_ttl.json |
+| Tool | Sample | URL |
+|---|---|---|
+| **PagerDuty** | Payments DB connection leak | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_payments_outage.json |
+| **PagerDuty** | Redis TTL cascading failure | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/pagerduty/incident_redis_ttl.json |
+| **Datadog** | Payments 5xx with related events | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/datadog/incident_payments_5xx.json |
+| **Splunk** | Checkout cascading failure | https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/samples/splunk/incident_checkout_cascade.json |
 
 ### External references
 

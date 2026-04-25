@@ -1,0 +1,63 @@
+{
+  "sid": "scheduler_admin__search_RMD5b1234abcd_at_1697251260",
+  "search_name": "checkout-service-error-spike",
+  "alert_name": "Checkout error rate alert",
+  "title": "Checkout service error spike detected",
+  "trigger_time": "2025-11-05T14:22:00.000+00:00",
+  "_time": "2025-11-05T14:22:00.000+00:00",
+  "severity": 5,
+  "urgency": "high",
+  "app": "search",
+  "owner": "sre-team",
+  "savedsearch_name": "checkout-service-error-spike",
+  "service": "checkout-service",
+  "sourcetype": "checkout-service:application_log",
+  "host": "checkout-prod-01",
+  "results": [
+    {
+      "_time": "2025-11-05T14:22:00.000+00:00",
+      "service": "checkout-service",
+      "sourcetype": "checkout-service:application_log",
+      "severity": 5,
+      "_raw": "ERROR [checkout-service] /api/checkout/complete 500 - downstream auth-service timeout"
+    },
+    {
+      "_time": "2025-11-05T14:23:15.000+00:00",
+      "service": "auth-service",
+      "sourcetype": "auth-service:application_log",
+      "severity": 4,
+      "_raw": "ERROR [auth-service] token validation timeout - redis-auth unreachable"
+    },
+    {
+      "_time": "2025-11-05T14:24:30.000+00:00",
+      "service": "redis-auth",
+      "sourcetype": "redis-auth:redis_log",
+      "severity": 4,
+      "_raw": "WARN [redis-auth] cache miss rate 95%, max_memory exceeded after TTL config change at 14:18"
+    },
+    {
+      "_time": "2025-11-05T14:25:00.000+00:00",
+      "service": "checkout-service",
+      "sourcetype": "checkout-service:application_log",
+      "severity": 5,
+      "_raw": "ERROR [checkout-service] cascading failures - 50% of requests failing"
+    }
+  ],
+  "comments": [
+    {
+      "timestamp": "2025-11-05T14:23:00.000+00:00",
+      "user": "alex.kim",
+      "text": "Checkout failures spiking — let me check downstream"
+    },
+    {
+      "timestamp": "2025-11-05T14:26:00.000+00:00",
+      "user": "priya.patel",
+      "text": "Just deployed redis-auth TTL change at 14:18 (5s -> 500ms). This is on me, reverting."
+    },
+    {
+      "timestamp": "2025-11-05T14:32:00.000+00:00",
+      "user": "alex.kim",
+      "text": "Revert deployed. Cache hit rate climbing back. Checkout errors dropping."
+    }
+  ]
+}
