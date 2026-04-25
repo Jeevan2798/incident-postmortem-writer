@@ -433,6 +433,6 @@ postmortem-env/
 | `API_BASE_URL` | `https://api.openai.com/v1` | LLM API endpoint |
 | `MODEL_NAME` | `gpt-4o-mini` | Model identifier |
 | `HF_TOKEN` | — | API key |
-| `WORKERS` | `2` | Uvicorn worker processes |
+| `WORKERS` | `1` | Uvicorn worker processes |
 | `MAX_CONCURRENT_ENVS` | `100` | Max WebSocket sessions |
 | `DIFFICULTY` | `easy` | Default task difficulty (easy/medium/hard/expert) |
