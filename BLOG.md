@@ -174,6 +174,38 @@ That's what I want this environment to enable. Not just an academic benchmark. A
 
 ---
 
+## Going live: the Slack bot
+
+The production bridge is one thing. *Actually deploying it* is another.
+
+So the night before submission, I built a Slack bot.
+
+It's a slash command. A user types `/postmortem <incident-json-url>` in a Slack channel. The bot fetches the incident JSON, runs it through my PagerDuty importer, calls the agent, and posts a structured post-mortem back to the channel. End-to-end in about twenty seconds.
+
+[![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID)
+
+The architecture is small but real:
+
+```
+Slack slash command
+       ↓
+ngrok webhook → FastAPI (slackbot/app.py)
+       ↓
+PagerDuty importer (tools/pagerduty_importer.py)
+       ↓
+LLM agent (Llama 3.1 8B via Groq)
+       ↓
+Structured post-mortem posted back to Slack
+```
+
+A few things had to be right for this to work. Slack requires a 200 response within three seconds — the LLM call takes fifteen to twenty — so the bot acknowledges immediately and processes the incident in a background task. Slack signs every request with HMAC-SHA256, so the bot verifies signatures against the signing secret before doing anything. None of this is exotic, but the first time you build it under deadline pressure, it's all new.
+
+What I like most about this isn't the bot itself. It's that the entire system — environment, importer, agent, UI — is now the same code path you'd ship at a company. The same `pagerduty_importer.py` that judges run from the command line is the same module the bot imports. The same agent that scores 0.857 average on benchmark scenarios is the same one writing the post-mortem in Slack.
+
+This isn't a demo built specifically for the hackathon. It's the real thing, demonstrated in a hackathon-sized way.
+
+---
+
 ## What I'd do differently with more compute
 
 The biggest thing limiting V2's multi-agent training was the 0.5B model size. With access to a single A100 or L4 GPU, the next steps are obvious:
@@ -184,7 +216,7 @@ The biggest thing limiting V2's multi-agent training was the 0.5B model size. Wi
 
 **Multi-incident chains.** What if the same root cause causes three related incidents over a week? That's a real scenario in production, and the environment doesn't model it yet. Linked episodes would test long-context reasoning across days.
 
-**Live deployment.** Take the trained agent, wrap it in a Slack bot, hook it to a real PagerDuty webhook at a small company, and watch what happens. The metric becomes "what percentage of agent drafts make it through human review unchanged?" That's the real benchmark.
+**Real-company deployment.** I built the Slack bot demo for the hackathon — next is hooking it to a real PagerDuty webhook at an actual company and watching what happens. The metric becomes "what percentage of agent drafts make it through human review unchanged?" That's the real benchmark, and the only one that ultimately matters.
 
 ---
 
@@ -200,7 +232,7 @@ The deterministic grader means any lab can benchmark GPT-4, Claude, Gemini, and 
 
 ## Closing thoughts
 
-I built this as a solo entry. Three weeks ago I'd never trained an LLM. Now I have a deployed Hugging Face Space, two TRL fine-tuning runs documented end-to-end, multi-agent extensions with measurable gains, and a real production integration pattern.
+I built this as a solo entry. Three weeks ago I'd never trained an LLM. Now I have a deployed Hugging Face Space, two TRL fine-tuning runs documented end-to-end, multi-agent extensions with measurable gains, three production importers (PagerDuty, Datadog, Splunk), and a working Slack bot that demonstrates the whole pipeline end-to-end on real incident data.
 
 The tooling has gotten so much better in the last year. OpenEnv made the environment scaffolding clean. TRL made the training accessible. Hugging Face Spaces made deployment trivial. Groq made fast inference free for hackathon use. None of this would have been buildable by one person on weekends a year ago.
 

@@ -37,6 +37,16 @@ An [OpenEnv](https://github.com/meta-pytorch/OpenEnv) environment where AI agent
 | 🔬 Inference Scripts | [inference.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference.py) · [inference_multiagent.py](https://github.com/Jeevan2798/incident-postmortem-writer/blob/main/inference_multiagent.py) | Single-agent and multi-agent inference runners |
 
 
+## 🤖 Live Slack Bot Demo
+
+[![Watch the demo](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID)
+
+**The agent runs as a Slack slash command** — paste a PagerDuty incident JSON URL into Slack, get a structured post-mortem in ~20 seconds. See the [slackbot/](https://github.com/Jeevan2798/incident-postmortem-writer/tree/main/slackbot) folder for the FastAPI implementation.
+
+This demonstrates the full production loop: `incident system → JSON → agent → post-mortem in Slack thread → human review`.
+
+---
+
 ## ⚡ Quick Reproduction (15 minutes)
 
 Want to verify the numbers yourself? Three commands:
