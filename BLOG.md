@@ -42,7 +42,7 @@ I wrote four scenarios, each designed to break agents in a different way.
 
 **Expert** is the one I'm most proud of. A security breach via a compromised API key. Three different false root causes get proposed in Slack. Two senior engineers get it wrong. The real evidence — a Tor exit node hammering api-gateway with a stolen service account key — exists in a 3-minute window of audit logs that no one has queried yet. The agent has to ignore the noise, trust the data, and find the breach. (Llama-3.1-8B scores 0.662 — even a strong model gets this wrong about a third of the time.)
 
-When I plotted the baseline scores I got a clean staircase: 1.000 → 0.985 → 0.797 → 0.662. That told me the difficulties were actually graduated, not arbitrary. Each level was testing something the previous one couldn't.
+When I plotted the baseline scores I got a clean staircase: 1.000 → 0.970 → 0.797 → 0.662. That told me the difficulties were actually graduated, not arbitrary. Each level was testing something the previous one couldn't.
 
 ---
 
@@ -92,10 +92,10 @@ The results, on the deployed Hugging Face Space:
 | Task | Single-Agent | Multi-Agent | Change |
 |:----:|:------------:|:-----------:|:------:|
 | Easy   | 1.000 | 1.000 | = |
-| Medium | 0.985 | 1.000 | +0.015 |
+| Medium | 0.970 | 1.000 | +0.030 |
 | Hard   | 0.797 | 0.807 | +0.010 |
 | Expert | 0.662 | 0.712 | **+0.050** |
-| **Avg** | **0.861** | **0.880** | **+0.019** |
+| **Avg** | **0.857** | **0.880** | **+0.022** |
 
 Notice where the biggest gain shows up: the Expert task. The hardest one, the one with the most adversarial signals. That's exactly where you'd predict a skeptic would help — when the primary agent's confidence is wrong, the skeptic forces it to reconsider.
 

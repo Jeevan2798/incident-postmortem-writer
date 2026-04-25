@@ -145,7 +145,7 @@ The environment supports a **primary + skeptic** multi-agent pattern:
 - **`REVISE_SECTION`** action — primary agent revises a section addressing a specific critique
 - **`collaboration_score`** dimension — grader rewards agents that address critiques (+0.10 bonus)
 
-The skeptic is called server-side via Groq API (fallback critiques when no API key). Multi-agent episodes measurably outperform single-agent on adversarial tasks: **Expert task improved +0.050** and overall average went from **0.861 → 0.880**.
+The skeptic is called server-side via Groq API (fallback critiques when no API key). Multi-agent episodes measurably outperform single-agent on adversarial tasks: **Expert task improved +0.050** and overall average went from **0.857 → 0.880**.
 
 Run it yourself with `inference_multiagent.py`:
 ```bash
@@ -287,7 +287,7 @@ Using `llama-3.1-8b-instant` via Groq API (runtime: ~200 seconds):
 
 ```
 easy  : 1.000  ████████████████████
-medium: 0.985  ███████████████████
+medium: 0.970  ███████████████████
 hard  : 0.797  ███████████████
 expert: 0.674  █████████████
 avg   : 0.864
