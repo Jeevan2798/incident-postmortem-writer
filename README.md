@@ -49,19 +49,52 @@ This demonstrates the full production loop: `incident system → JSON → agent 
 
 ## ⚡ Quick Reproduction (15 minutes)
 
-Want to verify the numbers yourself? Three commands:
+Want to verify the numbers yourself?
 
 ```bash
 git clone https://github.com/Jeevan2798/incident-postmortem-writer
 cd incident-postmortem-writer
 pip install -r requirements.txt
+```
 
-# Set Groq API credentials
+**Set Groq API credentials** (use the syntax that matches your shell):
+
+<details>
+<summary><b>Linux / macOS / Git Bash</b></summary>
+
+```bash
 export API_BASE_URL=https://api.groq.com/openai/v1
 export MODEL_NAME=llama-3.1-8b-instant
 export HF_TOKEN=<your-groq-key>
 export ENV_BASE_URL=https://jeevan2717-incident-postmortem-writer.hf.space
+```
+</details>
 
+<details>
+<summary><b>Windows PowerShell</b></summary>
+
+```powershell
+$env:API_BASE_URL = "https://api.groq.com/openai/v1"
+$env:MODEL_NAME = "llama-3.1-8b-instant"
+$env:HF_TOKEN = "<your-groq-key>"
+$env:ENV_BASE_URL = "https://jeevan2717-incident-postmortem-writer.hf.space"
+```
+</details>
+
+<details>
+<summary><b>Windows Command Prompt (cmd.exe)</b></summary>
+
+```cmd
+set API_BASE_URL=https://api.groq.com/openai/v1
+set MODEL_NAME=llama-3.1-8b-instant
+set HF_TOKEN=<your-groq-key>
+set ENV_BASE_URL=https://jeevan2717-incident-postmortem-writer.hf.space
+```
+</details>
+
+**Then run the three reproduction commands:**
+
+```bash
 # 1. Single-agent baseline (5 min)
 python inference.py
 # Expected: easy=1.000 medium=0.970 hard=0.797 expert=0.662 avg=0.857
