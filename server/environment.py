@@ -120,6 +120,10 @@ def _call_skeptic_llm(current_sections: Dict[str, str], incident_title: str, ale
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
+            # User-Agent required to bypass Cloudflare WAF on api.groq.com
+            # Without this, Cloudflare returns 403 with error code 1010 (bot detection)
+            "User-Agent": "incident-postmortem-writer/1.0 (OpenEnv hackathon submission)",
+            "Accept": "application/json",
         },
         method="POST",
     )
