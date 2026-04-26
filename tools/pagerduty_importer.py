@@ -176,7 +176,7 @@ def import_pagerduty_incident(pd_json: Dict[str, Any]) -> Dict[str, Any]:
     # This distinguishes imported scenarios from training scenarios.
     scenario = {
         "scenario_id":     f"pagerduty-{incident_id}",
-        "difficulty":      "imported",   # signals "this is a real incident"
+        "difficulty":      "easy",   # signals "this is a real incident"
         "incident_id":     f"PD-{incident_id}",
         "incident_title":  incident_title,
         "goal":            f"Write a post-mortem for PagerDuty incident {incident_id}.",
