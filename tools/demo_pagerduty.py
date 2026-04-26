@@ -38,8 +38,8 @@ except ImportError:
     print("ERROR: openai package not installed. Run: pip install openai", file=sys.stderr)
     sys.exit(1)
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.environ.get("MODEL_NAME",   "gpt-4o-mini")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.groq.com/openai/v1")
+MODEL_NAME   = os.environ.get("MODEL_NAME",   "llama-3.1-8b-instant")
 HF_TOKEN     = os.environ.get("HF_TOKEN",     "")
 
 client = OpenAI(api_key=HF_TOKEN or "dummy", base_url=API_BASE_URL)
@@ -125,10 +125,22 @@ def main():
     print(f"\n[3/3] Running agent ({MODEL_NAME})...")
     if not HF_TOKEN:
         print("\nWARNING: HF_TOKEN env var not set. Agent call will fail.")
-        print("Set env vars first:")
-        print("  set API_BASE_URL=https://api.groq.com/openai/v1")
-        print("  set MODEL_NAME=llama-3.1-8b-instant")
-        print("  set HF_TOKEN=your-groq-key")
+        print("Set env vars first (use the syntax for your shell):")
+        print("")
+        print("  Linux / macOS / Git Bash:")
+        print("    export API_BASE_URL=https://api.groq.com/openai/v1")
+        print("    export MODEL_NAME=llama-3.1-8b-instant")
+        print("    export HF_TOKEN=your-groq-key")
+        print("")
+        print("  Windows PowerShell:")
+        print('    $env:API_BASE_URL = "https://api.groq.com/openai/v1"')
+        print('    $env:MODEL_NAME = "llama-3.1-8b-instant"')
+        print('    $env:HF_TOKEN = "your-groq-key"')
+        print("")
+        print("  Windows Command Prompt (cmd.exe):")
+        print("    set API_BASE_URL=https://api.groq.com/openai/v1")
+        print("    set MODEL_NAME=llama-3.1-8b-instant")
+        print("    set HF_TOKEN=your-groq-key")
         sys.exit(1)
 
     try:
